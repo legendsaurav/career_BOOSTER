@@ -16,12 +16,12 @@ export const getApiBaseUrl = () => {
     try {
         const globalAny: any = window as any;
         if (globalAny && globalAny.__API_BASE__) return globalAny.__API_BASE__;
+        const host = window && window.location && window.location.hostname ? window.location.hostname : '';
+        if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:4000';
         // Vite environment variable (if set during build/dev)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const viteBase = (import.meta as any)?.env?.VITE_API_BASE;
         if (viteBase) return viteBase;
-        const host = window && window.location && window.location.hostname ? window.location.hostname : '';
-        if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8787';
         // Fallback to deployed server
         return 'https://lol-j8ni.onrender.com';
     } catch (e) {
