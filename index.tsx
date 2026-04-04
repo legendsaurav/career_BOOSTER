@@ -2720,9 +2720,9 @@ const ProfessorDirectoryPage = ({ professors, onNavigate, onAdd, userRole, onEdi
 const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarget, onReturnHome, hasGuestTarget, onConfirmGuestTarget }: any) => {
     const [actionModalStep, setActionModalStep] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'about' | 'lectures' | 'companies'>('about');
-    const cvGeneratorSrc = '?view=cv';
+    const cvGeneratorExternalUrl = 'https://cv-generator-theta-six.vercel.app/';
     const openCvGenerator = () => {
-        window.location.assign(cvGeneratorSrc);
+        window.open(cvGeneratorExternalUrl, '_blank', 'noopener,noreferrer');
     };
 
     const companiesList = useMemo(() => {
@@ -2775,7 +2775,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                     <p>{professor.position} | {professor.degree}</p>
                     <div className="profile-actions">
                         <button className="action-btn" onClick={openAction}>ACTION (Set Target)</button>
-                        <a className="secondary-btn" href={cvGeneratorSrc} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
+                        <a className="secondary-btn" href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
                         {userRole === 'admin' && (
                             <button
                                 className="edit-profile-btn secondary-btn"
@@ -2986,7 +2986,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                                     Build your CV now to apply professionally with details tailored to this track.
                                 </p>
                                 <p>
-                                    If redirection is blocked, use this link: <a href={cvGeneratorSrc} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
+                                    If redirection is blocked, use this link: <a href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
                                 </p>
                             </div>
                         </div>
@@ -3002,7 +3002,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                             </button>
                             <a
                                 className="modal-btn primary"
-                                href={cvGeneratorSrc}
+                                href={cvGeneratorExternalUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
@@ -5535,18 +5535,7 @@ export const App = () => {
         setSelectedProfessorId(null);
         setViewStack([{ view: 'home' }]);
     };
-        // On new login, clear any previous guest/professor selection
-        try {
-            if (profile && profile.email) {
-                localStorage.removeItem(`guest_target_${profile.email}`);
-                // Remove all custom companies for this user
-                Object.keys(localStorage).forEach((k) => {
-                    if (k.startsWith(`MINE_CUSTOM_COMPANIES_PUBLIC_`)) {
-                        localStorage.removeItem(k);
-                    }
-                });
-            }
-        } catch (e) {}
+        // Removed invalid block referencing 'profile' outside any function
 
     useEffect(() => {
         if (userRole) loadData();

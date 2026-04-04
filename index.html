@@ -4,158 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Career Booster</title>
-  <script type="module">
-    const params = new URLSearchParams(window.location.search);
-    const isCvMode = params.get('view') === 'cv';
-
-    window.__APP_MODE__ = isCvMode ? 'cv' : 'app';
-    const cvAssetUrl = (name) => new URL(name, window.location.href).toString();
-
-    if (isCvMode) {
-      document.title = 'CV Template';
-      const cvStyles = document.createElement('link');
-      cvStyles.rel = 'stylesheet';
-      cvStyles.href = cvAssetUrl('styles.css');
-      document.head.appendChild(cvStyles);
-    }
-  </script>
+  <!-- Removed local CV template logic -->
 </head>
 <body>
   <a
-    href="?view=cv"
+    href="https://cv-generator-theta-six.vercel.app/"
     style="position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 14px;border-radius:999px;background:#0f172a;color:#fff;text-decoration:none;font:600 14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 8px 20px rgba(0,0,0,0.25);"
     aria-label="Open CV Generator"
+    target="_blank" rel="noopener noreferrer"
   >
     Open CV Generator
   </a>
   <div id="root"></div>
-  <template id="cv-template">
-    <main class="resume">
-      <form id="userForm">
-        <header class="resume__header">
-          <div class="brand">
-            <img src="/converted_image.png" alt="Institute Emblem" class="brand__logo" />
-            <div>
-              <input type="text" id="name" name="name" placeholder="Your Name" required style="font-size:28px; font-weight:bold; width:100%;" />
-              <input type="text" id="degree" name="degree" placeholder="Degree (e.g. in Engineering Physics)" style="width:100%;" />
-              <input type="text" id="institute" name="institute" value="Indian Institute of Technology, Ropar" style="width:100%;" readonly />
-            </div>
-          </div>
-          <div class="contact">
-            <input type="text" id="phone" name="phone" placeholder="Phone Number" />
-            <input type="email" id="email" name="email" placeholder="Email" />
-            <input type="url" id="github" name="github" placeholder="GitHub URL" />
-            <input type="url" id="linkedin" name="linkedin" placeholder="LinkedIn URL" />
-          </div>
-        </header>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Education</h2>
-          </div>
-          <div class="table">
-            <div class="table__row table__row--head">
-              <span>DEGREE</span>
-              <span>INSTITUTE/BOARD</span>
-              <span>CGPA/PERCENTAGE</span>
-              <span>YEAR</span>
-            </div>
-            <div class="table__row">
-              <span>Bachelor of Technology</span>
-              <span>Indian Institute of Technology, Ropar</span>
-              <span><input type="text" name="btech_cgpa" style="width:90%;" /></span>
-              <span><input type="text" name="btech_year" style="width:90%;" /></span>
-            </div>
-            <div class="table__row">
-              <span>Senior Secondary</span>
-              <span>Central Board of Secondary Education</span>
-              <span><input type="text" name="senior_cgpa" style="width:90%;" /></span>
-              <span><input type="text" name="senior_year" style="width:90%;" /></span>
-            </div>
-            <div class="table__row">
-              <span>Secondary</span>
-              <span>Central Board of Secondary Education</span>
-              <span><input type="text" name="secondary_cgpa" style="width:90%;" /></span>
-              <span><input type="text" name="secondary_year" style="width:90%;" /></span>
-            </div>
-          </div>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Experience</h2>
-          </div>
-          <div id="experience-section"></div>
-          <button type="button" onclick="addExperience()">Add Experience</button>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Projects</h2>
-          </div>
-          <div id="projects-section"></div>
-          <button type="button" onclick="addProject()">Add Project</button>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Technical Skills</h2>
-          </div>
-          <div id="skills-section"></div>
-          <button type="button" onclick="addSkillGroup()">Add Skill Group</button>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Key Courses Taken</h2>
-          </div>
-          <div id="courses-section"></div>
-          <button type="button" onclick="addCourseGroup()">Add Course Group</button>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>Positions of Responsibility</h2>
-          </div>
-          <ul id="positions-section"></ul>
-          <button type="button" onclick="addPosition()">Add Position</button>
-        </section>
-
-        <section class="section">
-          <div class="section__header">
-            <h2>MISCELLANEOUS</h2>
-          </div>
-          <textarea
-            id="miscellaneous"
-            name="miscellaneous"
-            rows="4"
-            placeholder="Add certifications, achievements, languages, hobbies, volunteering, awards, or any additional details..."
-          ></textarea>
-        </section>
-
-        <br />
-        <button type="submit">Save/Preview Resume</button>
-      </form>
-      <section id="preview" style="margin-top:40px;"></section>
-    </main>
-  </template>
-
-  <script type="module">
-    const root = document.getElementById('root');
-    const mode = window.__APP_MODE__;
-
-    if (mode === 'cv') {
-      const tpl = document.getElementById('cv-template');
-      if (root && tpl instanceof HTMLTemplateElement) {
-        root.replaceWith(tpl.content.cloneNode(true));
-      }
-      const cvScript = document.createElement('script');
-      cvScript.src = new URL('script.js', window.location.href).toString();
-      cvScript.defer = true;
-      document.body.appendChild(cvScript);
-    } else {
-      import('./index.client.tsx');
-    }
-  </script>
+  <!-- All local CV template and script logic fully removed -->
+  <script type="module" src="/index.client.tsx"></script>
 </body>
 </html>
