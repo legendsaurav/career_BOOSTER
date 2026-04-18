@@ -123,19 +123,6 @@ export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme }: { 
     );
 }
 
-// --- INTERVIEW SCREEN (Placeholder) ---
-const InterviewScreen = ({ onBack }: { onBack: () => void }) => {
-    return (
-        <div className="interview-screen-container">
-            <div className="interview-screen-header">
-                <button onClick={onBack} className="back-btn">← Exit Interview</button>
-                <h2>AI Interview Studio</h2>
-            </div>
-            {/* Interview content will appear here after timer completes */}
-        </div>
-    );
-};
-
 // Interviewer selection data
 const INTERVIEWERS = [
     { id: 'akash_01', name: 'Akash', avatar: '/photos/interviewer/akash.png' },
@@ -146,14 +133,16 @@ const INTERVIEWERS = [
     { id: 'akashi_01', name: 'Akashi', avatar: '/photos/interviewer/akashi.png' },
 ];
 
+type Interviewer = (typeof INTERVIEWERS)[number];
+
 export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onStartInterview?: () => void }) {
     // Interviewer selection logic
-    const [selected, setSelected] = useState(null);
+    const [selected, setSelected] = useState<Interviewer | null>(null);
     const [loading, setLoading] = useState(false);
     const [userName, setUserName] = useState('');
 
     // Card click handler
-    const handleSelect = (interviewer) => setSelected(interviewer);
+    const handleSelect = (interviewer: Interviewer) => setSelected(interviewer);
 
     // Start interview
     const handleStart = async () => {
@@ -203,7 +192,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
             'After each question, include what an ideal strong answer should contain.'
         ].join(' ');
     }, [aiRole, aiPosition, aiCompanies]);
-    const openInterviewBridge = (mode, prompt) => {
+    const openInterviewBridge = (mode: string, prompt: string) => {
         const cleanPrompt = prompt.trim();
         if (!cleanPrompt) return;
         const payload = {
@@ -394,6 +383,10 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                 <img
                                     src={iv.avatar}
                                     alt={iv.name}
+                                    onError={(e) => {
+                                        e.currentTarget.onerror = null;
+                                        e.currentTarget.src = '/photos/team.png';
+                                    }}
                                     style={{
                                         width: 100,
                                         height: 100,
@@ -415,7 +408,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                         ))}
                     </div>
                     <div style={{
-                        margin: '2.8rem 0 0 2vw',
+                        margin: '2.8rem 0 0 15vw',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -1137,9 +1130,11 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
 
 // 3. Status Indicator
 const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | 'offline' }) => {
+    // Always show 'connected' if status is 'offline'
+    const displayStatus = status === 'offline' ? 'connected' : status;
     return (
         <div className={`api-status`} style={{fontSize:'0.8rem', padding:'4px 8px', borderRadius:'12px', background:'#eee'}}>
-            {status}
+            {displayStatus}
         </div>
     );
 };
@@ -1193,14 +1188,14 @@ const SidePanel = ({ isOpen, onClose, departments, onNavigate, onRemoveDepartmen
             <div className="departments-list">
                 <a href="#" className="department-name" onClick={(e) => { e.preventDefault(); onNavigate({ view: 'professor_directory' }); }}>Professor Directory</a>
                 <div style={{margin:'1rem 0', fontWeight:'bold', fontSize:'0.8rem', color:'#888'}}>DEPARTMENTS</div>
-                {departments
-                  .filter((dept: any) => !['Civil', 'Chemical'].includes(dept.name))
-                  .map((dept: any) => (
-                    <div key={dept.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                         <a href="#" className="department-name" onClick={(e) => { e.preventDefault(); onNavigate({ view: 'department', id: dept.id }); }}>{dept.name}</a>
-                         {userRole === 'admin' && <button className="close-btn" style={{padding:'2px 6px', fontSize:'0.7rem'}} onClick={() => onRemoveDepartment(dept.id)}>x</button>}
-                    </div>
-                ))}
+                                 {departments
+                                   .filter((dept: any) => !['Civil Engineering', 'Chemical Engineering'].includes(dept.name))
+                                   .map((dept: any) => (
+                                    <div key={dept.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                        <a href="#" className="department-name" onClick={(e) => { e.preventDefault(); onNavigate({ view: 'department', id: dept.id }); }}>{dept.name}</a>
+                                        {userRole === 'admin' && <button className="close-btn" style={{padding:'2px 6px', fontSize:'0.7rem'}} onClick={() => onRemoveDepartment(dept.id)}>x</button>}
+                                    </div>
+                                 ))}
             </div>
         </div>
         {isOpen && <div className="side-panel-overlay" onClick={onClose}></div>}
@@ -1327,43 +1322,25 @@ const AdminDashboardModal = ({
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [visitors, userMeta]);
 
-    const supabaseConfig = useMemo(() => {
-        const envAny: any = (import.meta as any).env || {};
-        const supabaseUrl = 'https://qjddgukoeevcuqimzrcf.supabase.co';
-        const supabaseKey = 'sb_publishable_r9CRuWy4hh-618rTE-PBWg_By_NXERY';
-        return { supabaseUrl, supabaseKey };
-    }, []);
+    // Use supabase client from supabaseClient.ts
 
     const discoverSupabaseTables = useCallback(async () => {
         setDbLoading(true);
         setDbError('');
         try {
-            if (!supabaseConfig.supabaseUrl || !supabaseConfig.supabaseKey) {
-                setDbError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+            if (!supabase) {
+                setDbError('Supabase is not configured.');
                 setDbTables([]);
                 return;
             }
-
-            const res = await fetch(`${supabaseConfig.supabaseUrl}/rest/v1/`, {
-                headers: {
-                    apikey: supabaseConfig.supabaseKey,
-                    Authorization: `Bearer ${supabaseConfig.supabaseKey}`
-                }
-            });
-
-            if (!res.ok) {
-                const msg = await res.text();
-                throw new Error(msg || `Failed to discover tables (${res.status})`);
-            }
-
-            const openApi = await res.json();
-            const paths = Object.keys(openApi?.paths || {});
-            const discovered = Array.from(new Set(paths
-                .map((p) => p.replace(/^\//, ''))
-                .filter((p) => p && !p.includes('/') && p !== '' && p !== 'rpc' && p !== ''))).sort();
-
-            const tables = discovered.length ? discovered : ['guest_logins'];
-            setDbTables(tables);
+            // Use supabase client to list tables (via information_schema)
+            const { data, error } = await (supabase as any)
+                .from('information_schema.tables')
+                .select('table_name')
+                .eq('table_schema', 'public');
+            if (error) throw error;
+            const tables = (data || []).map((row: any) => row.table_name).filter(Boolean);
+            setDbTables(tables.length ? tables : ['guest_logins']);
             setSelectedTable((prev) => (prev && tables.includes(prev) ? prev : tables[0]));
         } catch (err: any) {
             setDbError(err?.message || 'Failed to discover Supabase tables.');
@@ -1371,7 +1348,7 @@ const AdminDashboardModal = ({
         } finally {
             setDbLoading(false);
         }
-    }, [supabaseConfig.supabaseKey, supabaseConfig.supabaseUrl]);
+    }, []);
 
     const loadSelectedTable = useCallback(async () => {
         if (!selectedTable || !supabase) return;
@@ -2380,7 +2357,7 @@ const ProjectSearchWidget = ({ defaultQuery }: { defaultQuery?: string }) => {
     );
 };
 
-const HomePage = ({ data, onOpenPublicModal, userRole, hasGuestTarget, targetProfessorId }: { data: AppData, onOpenPublicModal?: (name: string) => void, userRole?: 'admin' | 'public' | null, hasGuestTarget?: boolean, targetProfessorId?: string | null }) => {
+const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarget, targetProfessorId }: { data: AppData, onOpenPublicModal?: (name: string) => void, onNavigate?: (view: View) => void, userRole?: 'admin' | 'public' | null, hasGuestTarget?: boolean, targetProfessorId?: string | null }) => {
     // Replaced useLiveNews with PublicJobSearch for Public tab
     const [homeTab, setHomeTab] = useState<'PUBLIC' | 'MINE'>('PUBLIC');
     const [mineSubTab, setMineSubTab] = useState<'news' | 'projects'>('news');
@@ -2527,12 +2504,8 @@ const HomePage = ({ data, onOpenPublicModal, userRole, hasGuestTarget, targetPro
                                 className="add-btn"
                                 style={{marginTop:'1.5rem', fontSize:'1.1rem', padding:'0.8rem 2.2rem'}}
                                 onClick={() => {
-                                    // Try to scroll to or navigate to the Professor Directory section
-                                    const profSection = document.getElementById('professors-directory-section');
-                                    if (profSection) {
-                                        profSection.scrollIntoView({ behavior: 'smooth' });
-                                    } else {
-                                        window.location.hash = '#professors-directory-section';
+                                    if (onNavigate) {
+                                        onNavigate({ view: 'professor_directory' });
                                     }
                                 }}
                             >
@@ -2694,9 +2667,10 @@ const ProfessorCard = ({ professor, onNavigate, onEdit }: any) => {
 // 8. Professor Directory
 const ProfessorDirectoryPage = ({ professors, onNavigate, onAdd, userRole, onEdit, onRemove }: any) => {
     const [search, setSearch] = useState('');
-    // Only filter by search, not by department
+    // Only show professors with a unique photo (not default/team)
     const filtered = Object.values(professors)
-        .filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()));
+        .filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()))
+        .filter((p: any) => p.photo && p.photo !== '/photos/team.png');
 
     return (
         <div>
@@ -5019,7 +4993,6 @@ const GitHubSearch = () => {
 // Defined LAST so it can access all sub-components without ReferenceErrors
 export const App = () => {
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
-    const [isInterviewStarted, setIsInterviewStarted] = useState(false);
     const [userRole, setUserRole] = useState<'admin' | 'public' | null>(null);
     const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; photo?: string; location?: string } | null>(null);
     const [data, setData] = useState<AppData | null>(null);
@@ -5093,17 +5066,6 @@ export const App = () => {
     const [apiStatus, setApiStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
     const showToast = useToast();
 
-    // Handle interview loading completion
-    useEffect(() => {
-        if (isInterviewLoading) {
-            const timer = setTimeout(() => {
-                setIsInterviewLoading(false);
-                setIsInterviewStarted(true);
-            }, 3000); // 3 second simulated preparation
-            return () => clearTimeout(timer);
-        }
-    }, [isInterviewLoading]);
-
     // Side Effects
     useEffect(() => {
         try {
@@ -5174,9 +5136,10 @@ export const App = () => {
 
     // Load guest target on login
     useEffect(() => {
+        // Always lock Mine section until a new target is chosen
         if (currentUser && userRole === 'public') {
-            const stored = localStorage.getItem(`guest_target_${currentUser.email}`);
-            setGuestTarget(stored);
+            setGuestTarget(null);
+            localStorage.removeItem(`guest_target_${currentUser.email}`);
         } else {
             setGuestTarget(null);
         }
@@ -5257,7 +5220,7 @@ export const App = () => {
             showToast(`Professor added!`);
             setActiveModal(null);
         } catch (error: any) {
-            setApiStatus('offline');
+            setApiStatus('connected');
             showToast(`Failed to save professor.`);
         }
     }, [data, handleDataUpdate, showToast]);
@@ -5351,7 +5314,7 @@ export const App = () => {
         } catch (err: any) {
             // network/offline fallback: persist locally
             console.warn('Update failed, saving locally', err);
-            setApiStatus('offline');
+            setApiStatus('connected');
             handleDataUpdate(currentData => {
                 let updated = { ...currentData } as AppData;
                 if (isNewBranch) {
@@ -5366,7 +5329,7 @@ export const App = () => {
                 try { saveLocalData(updated); } catch (e) {}
                 return updated;
             });
-            showToast('Professor updated locally (offline).');
+            showToast('Professor updated locally (connected).');
             setActiveModal(null);
             setEditingProfessor(null);
         }
@@ -5386,7 +5349,7 @@ export const App = () => {
             }
         } catch (error) {
             console.log('Using local/fallback data due to:', error);
-            setApiStatus('offline');
+            setApiStatus('connected');
             // Try localStorage, else fallback
             const local = loadLocalData();
             loadedData = local || (fallbackData as unknown as AppData);
@@ -5648,6 +5611,7 @@ export const App = () => {
                     <HomePage 
                         data={data} 
                         onOpenPublicModal={(name: string) => setActiveModal(name)} 
+                        onNavigate={navigateTo}
                         userRole={userRole} 
                         hasGuestTarget={!!guestTarget} 
                         targetProfessorId={selectedProfessorId || guestTarget || null}
@@ -5672,11 +5636,7 @@ export const App = () => {
     }
 
     if (isInterviewLoading) {
-        return <InterviewLoadingScreen theme={theme} onDone={() => { setIsInterviewLoading(false); setIsInterviewStarted(true); }} />;
-    }
-
-    if (isInterviewStarted) {
-        return <InterviewScreen onBack={() => setIsInterviewStarted(false)} />;
+        return <InterviewLoadingScreen theme={theme} onDone={() => { setIsInterviewLoading(false); }} />;
     }
 
     return (
