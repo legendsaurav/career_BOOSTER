@@ -652,6 +652,10 @@ const DEPARTMENT_STRATEGY_GUIDE: Record<string, { title: string; summary: string
     dept_hs: {
         title: 'HSS Strategy Track',
         summary: 'Position domain expertise for policy, cognition, language, and organizational impact. Strong profiles combine analytical writing with data-backed frameworks and research communication.'
+    },
+    dept_ai: {
+        title: 'AI Strategy Track',
+        summary: 'Focus on computer vision, speech, security, healthcare, and trustworthy AI systems. The strongest profiles show research depth, strong experimentation, and measurable deployment impact.'
     }
 };
 
@@ -684,6 +688,160 @@ interface JobItem {
     publishedAt?: string;
     isJobPosting: boolean;
 }
+
+const AI_DEPARTMENT_CSV_URL = encodeURI('/ai department/hs 202 project - AI.csv');
+
+const AI_PROFESSOR_PHOTOS: Record<string, string> = {
+    santoshkumarvipparthi: 'santosh kumar.jpg',
+    abhinavkumar: 'abhinav kumar.jpg',
+    anushaprakash: 'anusha prakash.jpg',
+    awaneeshkumaryadav: 'Awaneesh Kumar Yadav.jpg',
+    abhilashananda: 'Abhilasha Nanda.jpg',
+    mayureshspardeshi: 'M. S. Pardeshi.jpg',
+    puneetkumar: 'Puneet Kumar.jpg',
+    rakeshsanodiya: 'Rakesh Sanodiya.jpg',
+    tanushreemeena: 'Tanushree Meena.jpg',
+    vandanabharti: 'Vandana Bharti.jpg',
+    ashwanisharma: 'Ashwani Sharma.jpg',
+    brajeshrawat: 'Brajesh Rawat.jpg',
+    sudeeptamishra: 'Sudeepta.jpg',
+    sujatapal: 'Sujata Pa.jpg',
+    shashishekharjha: 'Shashi Shekar Jha.png',
+    mukeshkumarsaini: 'Mukesh Kumar Sain.png',
+    nitinauluck: 'Nitin Auluck.png',
+    arunkumar: 'arun kumar.jpg',
+    chandankumarbehera: 'C Behera.jpg'
+};
+
+const normalizeProfessorName = (value: string) => String(value || '')
+    .toLowerCase()
+    .replace(/^dr\.?\s*/i, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+
+const parseCsvText = (text: string): Record<string, string>[] => {
+    const rows = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!rows.length) return [];
+
+    const splitRow = (line: string) => {
+        const cells: string[] = [];
+        let current = '';
+        let insideQuotes = false;
+
+        for (let index = 0; index < line.length; index += 1) {
+            const char = line[index];
+            const nextChar = line[index + 1];
+
+            if (char === '"' && nextChar === '"') {
+                current += '"';
+                index += 1;
+                continue;
+            }
+
+            if (char === '"') {
+                insideQuotes = !insideQuotes;
+                continue;
+            }
+
+            if (char === ',' && !insideQuotes) {
+                cells.push(current.trim());
+                current = '';
+                continue;
+            }
+
+            current += char;
+        }
+
+        cells.push(current.trim());
+        return cells.map((cell) => cell.replace(/^"|"$/g, '').trim());
+    };
+
+    const headers = splitRow(rows[0]);
+    return rows.slice(1).map((row) => {
+        const values = splitRow(row);
+        const record: Record<string, string> = {};
+        headers.forEach((header, index) => {
+            if (!header) return;
+            record[header] = values[index] || '';
+        });
+        return record;
+    });
+};
+
+const getAiProfessorPhoto = (name: string) => {
+    const normalized = normalizeProfessorName(name);
+    const filename = AI_PROFESSOR_PHOTOS[normalized];
+    if (!filename) return '/photos/team.png';
+    return encodeURI(`/ai department/${filename}`);
+};
+
+const loadAiDepartmentData = async () => {
+    try {
+        const response = await fetch(AI_DEPARTMENT_CSV_URL);
+        if (!response.ok) return null;
+
+        const csvText = await response.text();
+        const rows = parseCsvText(csvText);
+        if (!rows.length) return null;
+
+        const department: Department = {
+            id: 'dept_ai',
+            name: 'AI',
+            branches: ['branch_ai']
+        };
+
+        const branch: Branch = {
+            id: 'branch_ai',
+            name: 'AI',
+            departmentId: 'dept_ai'
+        };
+
+        const professors: Record<string, Professor> = {};
+
+        rows.forEach((row, index) => {
+            const rawName = row['Professor Name'] || '';
+            const cleanName = rawName.trim();
+            if (!cleanName) return;
+
+            const researchArea = (row['Research Area'] || '').trim();
+            const phdFrom = (row['PhD From'] || '').trim();
+            const email = (row['Email'] || '').trim();
+            const websiteValue = (row['Website'] || '').trim();
+
+            professors[`prof_ai_${index + 1}`] = {
+                id: `prof_ai_${index + 1}`,
+                name: cleanName,
+                email,
+                position: 'Professor',
+                degree: phdFrom,
+                branch: 'branch_ai',
+                department: 'AI',
+                departmentId: 'dept_ai',
+                description: `AI research focus: ${researchArea || 'General artificial intelligence'}.`,
+                photo: getAiProfessorPhoto(cleanName),
+                links: {
+                    webpage: websiteValue.startsWith('http') ? websiteValue : '',
+                    awards: '',
+                    bio: websiteValue && !websiteValue.startsWith('http') ? websiteValue : ''
+                },
+                research: researchArea,
+                projects: [],
+                companies: [],
+                lectures: [],
+                websites: [],
+                institutes: phdFrom ? [phdFrom] : [],
+                source: 'hs 202 project - AI.csv',
+                strategyNotice: researchArea
+                    ? `Focus: ${researchArea}. Recommended approach: emphasize datasets, evaluation, and practical deployment.`
+                    : 'Focus: Artificial Intelligence. Recommended approach: emphasize datasets, evaluation, and practical deployment.'
+            } as Professor;
+        });
+
+        return { departments: [department], branches: { branch_ai: branch }, professors };
+    } catch {
+        return null;
+    }
+};
 
 type View = { view: 'home' } | { view: 'professor', id: string } | { view: 'department', id: string } | { view: 'professor_directory' };
 
@@ -739,7 +897,7 @@ const useToast = () => React.useContext(ToastContext);
 const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, apiKey?: string }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'model', text: 'Hello! How can I help you boost your career today?' }
+        { role: 'model', text: 'Hello! Ask me about any section of this website (Professor Directory, Departments, Mine/Public, Interview, Certificates, Quizzes, Alumni, Admin tools).' }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -755,6 +913,69 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
         if (isOpen) scrollToBottom();
     }, [messages, isOpen]);
 
+    const getSiteSpecificReply = (question: string): string | null => {
+        const q = question.toLowerCase();
+
+        if (q.includes('section') || q.includes('what can i do') || q.includes('help') || q.includes('website')) {
+            return [
+                'This website has these main sections:',
+                '- Professor Directory: browse all available professors.',
+                '- Departments: open a department to view its professors.',
+                '- PUBLIC: announcements and tech news feeds.',
+                '- MINE: personalized dashboard (unlocks after selecting a target professor).',
+                '- Free Certification Programs: provider-wise course collections.',
+                '- Quizzes: practice and prep resources.',
+                '- Alumni Networking: search alumni profiles.',
+                '- Interview: choose interviewer and start interview flow with timer.'
+            ].join('\n');
+        }
+
+        if (q.includes('professor directory') || q.includes('directory')) {
+            return 'Open the Menu and click Professor Directory. You can browse available professors and open a profile from there.';
+        }
+
+        if (q.includes('department')) {
+            return 'Use Menu -> Departments to open any department and view its professors. Departments with no data are removed from navigation.';
+        }
+
+        if (q.includes('mine') || q.includes('dashboard locked') || q.includes('unlock')) {
+            return 'Mine is personalized. For public users, it unlocks after selecting a target professor from Professor Directory. The Go to Professor Directory button on the lock screen takes you directly there.';
+        }
+
+        if (q.includes('public') || q.includes('announcement') || q.includes('news')) {
+            return 'PUBLIC tab shows announcements and news feeds. Use Open on each card to view full results.';
+        }
+
+        if (q.includes('interview') || q.includes('interviewer') || q.includes('timer')) {
+            return 'Interview flow: open Interview section, choose interviewer, enter your name, and start. The timer screen runs and then returns to the app view after completion.';
+        }
+
+        if (q.includes('certificate') || q.includes('certification') || q.includes('course')) {
+            return 'In Free Certification Programs, you can search by keyword, filter by category, and open course links provider-wise. Logos are loaded from local /logo files first, then fallback sources.';
+        }
+
+        if (q.includes('quiz') || q.includes('test') || q.includes('practice')) {
+            return 'Quizzes section provides practice-oriented resources to prepare for interviews and assessments.';
+        }
+
+        if (q.includes('alumni') || q.includes('network')) {
+            return 'Alumni Networking lets you search alumni/company-related profiles. Admin can configure API settings from the alumni modal settings button.';
+        }
+
+        if (q.includes('admin') || q.includes('visitor') || q.includes('manage')) {
+            if (userRole === 'admin') {
+                return 'As admin, you can manage professors/departments, view visitor notifications/panel, and open admin controls from the header.';
+            }
+            return 'Admin features are available only after admin login. Public users can browse directory, public feeds, and personalized Mine after target selection.';
+        }
+
+        if (q.includes('login') || q.includes('guest')) {
+            return 'You can log in as Guest or Admin from the login page. Guest access is validated against allowed users and then routed into the main portal.';
+        }
+
+        return null;
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!inputValue.trim() || isLoading) return;
@@ -766,10 +987,17 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
         setInputValue('');
         setIsLoading(true);
 
+        const siteReply = getSiteSpecificReply(userMessage.text);
+        if (siteReply) {
+            setMessages(prev => [...prev, { role: 'model', text: siteReply }]);
+            setIsLoading(false);
+            return;
+        }
+
         // Mock response if no key
         if (!apiKey) {
                 setTimeout(() => {
-                    setMessages(prev => [...prev, { role: 'model', text: "I am a demo bot. Please provide an API key in Personal Information to connect to AI." }]);
+                    setMessages(prev => [...prev, { role: 'model', text: "I can answer website section questions directly. For broader AI career guidance, add an API key in Personal Information." }]);
                     setIsLoading(false);
                 }, 1000);
                 return;
@@ -2670,7 +2898,8 @@ const ProfessorDirectoryPage = ({ professors, onNavigate, onAdd, userRole, onEdi
     // Only show professors with a unique photo (not default/team)
     const filtered = Object.values(professors)
         .filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()))
-        .filter((p: any) => p.photo && p.photo !== '/photos/team.png');
+        .filter((p: any) => p.photo && p.photo !== '/photos/team.png')
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
     return (
         <div>
@@ -2695,9 +2924,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
     const [actionModalStep, setActionModalStep] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'about' | 'lectures' | 'companies'>('about');
     const cvGeneratorExternalUrl = 'https://cv-generator-theta-six.vercel.app/';
-    const openCvGenerator = () => {
-        window.open(cvGeneratorExternalUrl, '_blank', 'noopener,noreferrer');
-    };
+    const showCvGenerator = userRole !== 'admin';
 
     const companiesList = useMemo(() => {
         if (Array.isArray(professor?.companies)) return professor.companies.filter(Boolean);
@@ -2749,7 +2976,9 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                     <p>{professor.position} | {professor.degree}</p>
                     <div className="profile-actions">
                         <button className="action-btn" onClick={openAction}>ACTION (Set Target)</button>
-                        <a className="secondary-btn" href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
+                        {showCvGenerator && (
+                            <a className="secondary-btn" href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
+                        )}
                         {userRole === 'admin' && (
                             <button
                                 className="edit-profile-btn secondary-btn"
@@ -2959,9 +3188,11 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                                 <p>
                                     Build your CV now to apply professionally with details tailored to this track.
                                 </p>
-                                <p>
-                                    If redirection is blocked, use this link: <a href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
-                                </p>
+                                {showCvGenerator && (
+                                    <p>
+                                        If redirection is blocked, use this link: <a href={cvGeneratorExternalUrl} target="_blank" rel="noopener noreferrer">Open CV Generator</a>
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="modal-actions">
@@ -2974,14 +3205,16 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                             >
                                 Return Home
                             </button>
-                            <a
-                                className="modal-btn primary"
-                                href={cvGeneratorExternalUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Open CV Generator
-                            </a>
+                            {showCvGenerator && (
+                                <a
+                                    className="modal-btn primary"
+                                    href={cvGeneratorExternalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Open CV Generator
+                                </a>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -3667,8 +3900,8 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
         }));
     }, [filtered]);
 
-    // Extended Logo Helper
-    const getLogo = (provider: string) => {
+    // Use local logos from /public/logo first, then fall back to known remote provider logos.
+    const getFallbackLogo = (provider: string) => {
         if (provider.includes('Google')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/368px-Google_2015_logo.svg.png';
         if (provider.includes('HubSpot')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/HubSpot_Logo.svg/2560px-HubSpot_Logo.svg.png';
         if (provider.includes('Harvard')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Harvard_University_shield.png/1200px-Harvard_University_shield.png';
@@ -3683,7 +3916,7 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
         if (provider.includes('CodeSignal')) return 'https://upload.wikimedia.org/wikipedia/commons/e/ee/CodeSignal_Logo.png';
         if (provider.includes('HackerRank')) return 'https://upload.wikimedia.org/wikipedia/commons/4/40/HackerRank_Icon-1000px.png';
         if (provider.includes('Wolfram')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Wolfram_Research_logo.svg/2560px-Wolfram_Research_logo.svg.png';
-        if (provider.includes('Complexity')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Santa_Fe_Institute_logo.svg/1200px-Santa_Fe_Institute_logo.svg.png'; // Santa Fe runs Complexity Explorer
+        if (provider.includes('Complexity')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Santa_Fe_Institute_logo.svg/1200px-Santa_Fe_Institute_logo.svg.png';
         if (provider.includes('Saylor')) return 'https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/Saylor_Academy_logo.png/220px-Saylor_Academy_logo.png';
         if (provider.includes('FutureLearn')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/FutureLearn_Logo.svg/2560px-FutureLearn_Logo.svg.png';
         if (provider.includes('upGrad')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/UpGrad_Logo.png/1200px-UpGrad_Logo.png';
@@ -3695,8 +3928,40 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
         if (provider.includes('Edraak')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Edraak_Logo.png/1200px-Edraak_Logo.png';
         if (provider.includes('ITCILO')) return 'https://www.itcilo.org/themes/custom/itcilo_theme/logo.svg';
         if (provider.includes('Urbino')) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Uniurb-logo.png/1200px-Uniurb-logo.png';
-        
         return 'https://via.placeholder.com/100x50?text=' + provider.charAt(0);
+    };
+
+    const getLogoCandidates = (provider: string) => {
+        // Provider to filename mapping for local logos
+        const providerLogoMap: Record<string, string[]> = {
+            'Acumen Academy': ['Acumen.png'],
+            'EC-Council': ['ec council.png'],
+            'Edraak': ['edraak.png'],
+            'FAO elearning Academy': ['FAO.png'],
+            'Global Campus of Human Rights': ['Global campus.png'],
+            'Google': ['google.png'],
+            'ITCILO': ['itcilo.png'],
+            'Marginal Revolution University': ['mru.png'],
+            'Santander Open Academy': ['Santander.png'],
+            'Save A Life by NHCPS': ['save a life.png'],
+            'University of Urbino': ['university of urbino.png'],
+            'Virtuelle Hochschule Bayern': ['virtuelle.png'],
+            'Watershed Academy': ['watershed.png'],
+        };
+
+        // First check for direct mapping
+        if (providerLogoMap[provider]) {
+            return providerLogoMap[provider].map(name => `/logo/${name}`);
+        }
+
+        // Fallback to normalized format
+        const normalized = provider.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        return [
+            `/logo/${normalized}.png`,
+            `/logo/${normalized}.jpg`,
+            `/logo/${normalized}.jpeg`,
+            `/logo/${normalized}.webp`
+        ];
     };
 
     return (
@@ -3732,7 +3997,30 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
                     {grouped.map((group, groupIdx) => (
                         <div key={groupIdx} className="cert-provider-group">
                             <div className="cert-provider-header">
-                                <img src={getLogo(group.provider)} alt={group.provider} className="provider-header-logo" />
+                                <img
+                                    src={getLogoCandidates(group.provider)[0]}
+                                    alt={group.provider}
+                                    className="provider-header-logo"
+                                    onError={(e) => {
+                                        const img = e.currentTarget;
+                                        const candidates = getLogoCandidates(group.provider);
+                                        const currentIdx = Number(img.dataset.localLogoIndex || '0');
+                                        const nextIdx = currentIdx + 1;
+                                        if (nextIdx < candidates.length) {
+                                            img.dataset.localLogoIndex = String(nextIdx);
+                                            img.src = candidates[nextIdx];
+                                            return;
+                                        }
+                                        const fallback = getFallbackLogo(group.provider);
+                                        if (!img.dataset.remoteFallbackTried) {
+                                            img.dataset.remoteFallbackTried = '1';
+                                            img.src = fallback;
+                                            return;
+                                        }
+                                        img.onerror = null;
+                                        img.src = 'https://via.placeholder.com/100x50?text=' + group.provider.charAt(0);
+                                    }}
+                                />
                                 <h3>{group.provider}</h3>
                                 <div className="provider-line"></div>
                             </div>
@@ -5388,6 +5676,30 @@ export const App = () => {
                      currentBranches[key] = fallbackBranches[key];
                  }
             });
+
+            const aiData = await loadAiDepartmentData();
+            if (aiData) {
+                const existingAiDepartments = new Set(loadedData.departments.map((d) => d.id));
+                aiData.departments.forEach((dept) => {
+                    if (!existingAiDepartments.has(dept.id)) {
+                        loadedData.departments.push(dept);
+                    }
+                });
+
+                const currentAiBranches = loadedData.branches as Record<string, Branch>;
+                Object.entries(aiData.branches).forEach(([key, branch]) => {
+                    if (!currentAiBranches[key]) {
+                        currentAiBranches[key] = branch;
+                    }
+                });
+
+                const currentAiProfessors = loadedData.professors as Record<string, Professor>;
+                Object.keys(aiData.professors).forEach((key) => {
+                    if (!currentAiProfessors[key]) {
+                        currentAiProfessors[key] = aiData.professors[key];
+                    }
+                });
+            }
         }
 
         setData(loadedData);

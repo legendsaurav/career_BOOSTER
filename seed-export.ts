@@ -1,31 +1,10 @@
 export const fallbackData = {
     "departments": [
         {
-            "id": "dept_ce",
-            "name": "Civil Engineering",
+            "id": "dept_ai",
+            "name": "AI",
             "branches": [
-                "branch_ce"
-            ]
-        },
-        {
-            "id": "dept_ee",
-            "name": "Electrical Engineering",
-            "branches": [
-                "branch_ee"
-            ]
-        },
-        {
-            "id": "dept_ma",
-            "name": "Mathematics",
-            "branches": [
-                "branch_ma"
-            ]
-        },
-        {
-            "id": "dept_me",
-            "name": "Mechanical Engineering",
-            "branches": [
-                "branch_me"
+                "branch_ai"
             ]
         },
         {
@@ -36,10 +15,24 @@ export const fallbackData = {
             ]
         },
         {
+            "id": "dept_ce",
+            "name": "Civil Engineering",
+            "branches": [
+                "branch_ce"
+            ]
+        },
+        {
             "id": "dept_cs",
             "name": "Computer Science and Engineering",
             "branches": [
                 "branch_cs"
+            ]
+        },
+        {
+            "id": "dept_ee",
+            "name": "Electrical Engineering",
+            "branches": [
+                "branch_ee"
             ]
         },
         {
@@ -54,6 +47,20 @@ export const fallbackData = {
             "name": "Materials Science and Engineering",
             "branches": [
                 "branch_mt"
+            ]
+        },
+        {
+            "id": "dept_ma",
+            "name": "Mathematics",
+            "branches": [
+                "branch_ma"
+            ]
+        },
+        {
+            "id": "dept_me",
+            "name": "Mechanical Engineering",
+            "branches": [
+                "branch_me"
             ]
         },
         {
@@ -109,6 +116,11 @@ export const fallbackData = {
             "id": "branch_ph",
             "name": "PH",
             "departmentId": "dept_ph"
+        },
+        "branch_ai": {
+            "id": "branch_ai",
+            "name": "AI",
+            "departmentId": "dept_ai"
         }
     },
     "professors": {
@@ -822,7 +834,7 @@ export const fallbackData = {
             "branch": "branch_ee",
             "departmentId": "dept_ee",
             "description": "This research area focuses on Antenna engineering, RF energy harvesting, wireless power transfer. It involves theoretical study, computational modelling, and experimental methods to understand fundamental principles and develop technologies or applications that solve scientific and engineering problems related to this domain.",
-            "photo": "",
+            "photo": "/electrical/Ashwani Sharma.jpg",
             "links": {
                 "webpage": "AMR Lab, IIT Ropar",
                 "awards": "",
