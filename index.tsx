@@ -3042,6 +3042,18 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
         return typeof professor?.strategyNotice === 'string' ? professor.strategyNotice.trim() : '';
     }, [professor?.strategyNotice]);
 
+    const profilePhotoSrc = useMemo(() => {
+        if (professor?.departmentId === 'dept_ai') {
+            return getAiProfessorPhoto(professor?.name || '');
+        }
+
+        const raw = String(professor?.photo || '').trim();
+        if (!raw) return '/photos/team.png';
+        if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+        if (raw.startsWith('/')) return encodeURI(raw);
+        return encodeURI(`/${raw.replace(/^\/+/, '')}`);
+    }, [professor?.photo]);
+
     const openAction = () => {
         // Guest Restriction Logic
         if (userRole === 'public') {
@@ -3069,7 +3081,15 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
     return (
         <div className="professor-profile">
             <div className="profile-header">
-                <img src={professor.photo} className="profile-photo-large" onError={(e) => (e.target as HTMLImageElement).src = '/photos/team.png'} />
+                <img
+                    src={profilePhotoSrc}
+                    className="profile-photo-large"
+                    onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        img.onerror = null;
+                        img.src = '/photos/team.png';
+                    }}
+                />
                 <div className="profile-info">
                     <h1>{professor.name}</h1>
                     <p>{professor.position} | {professor.degree}</p>
@@ -6027,7 +6047,9 @@ export const App = () => {
         if (loading || !data) return <div>Loading...</div>;
         switch (currentView.view) {
             case 'professor':
-                const prof = (Object.values(data.professors) as Professor[]).find(p => p.id === currentView.id) || data.professors[currentView.id];
+                const prof =
+                    data.professors[currentView.id] ||
+                    (Object.values(data.professors) as Professor[]).find((p) => p.id === currentView.id || p._id === currentView.id);
                 return prof ? (
                     <ProfessorProfilePage 
                         professor={prof} 

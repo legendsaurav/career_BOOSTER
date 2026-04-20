@@ -1915,10 +1915,10 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
 /* Professor Profile Page */
 .profile-view, .professor-profile { display: flex; flex-direction: column; gap: 2rem; }
 .profile-header { display: flex; gap: 2rem; align-items: flex-start; }
-.profile-photo-large { width: 160px; height: 160px; border-radius: var(--radius); object-fit: cover; box-shadow: var(--elevation-2); border: 4px solid var(--content-background); }
+.profile-photo-large { width: 160px; height: 160px; border-radius: var(--radius); object-fit: cover; box-shadow: var(--elevation-2); border: 4px solid var(--content-background); }.profile-info { min-width: 0; flex: 1; }
 .profile-info h1, .profile-info h2 { font-size: 2rem; margin: 0 0 0.5rem 0; color: var(--text-color); }
 .profile-info p { margin: 0.25rem 0; color: var(--subtle-text-color); }
-.profile-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+.profile-actions { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
 .profile-body h3 { border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; margin-top: 2rem; }
 .profile-body ul { padding-left: 1.25rem; }
 
@@ -1927,6 +1927,64 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
 .profile-webpage-link { display:inline-block; background: var(--primary-color); color: #fff; padding: 0.45rem 0.9rem; border-radius: 10px; font-weight: 700; text-decoration: none; box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12); }
 .profile-webpage-link:hover { background: var(--primary-2); }
 .profile-webpage-url small { color: var(--subtle-text-color); word-break: break-all; }
+
+@media (max-width: 768px) {
+    .professor-profile {
+        padding: 0.85rem;
+        gap: 1rem;
+    }
+
+    .profile-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.9rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.85rem;
+    }
+
+    .profile-photo-large {
+        width: 124px;
+        height: 124px;
+        margin: 0 auto;
+    }
+
+    .profile-info h1,
+    .profile-info h2 {
+        font-size: 1.45rem;
+        text-align: center;
+    }
+
+    .profile-info p {
+        text-align: center;
+    }
+
+    .profile-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.55rem;
+        margin-top: 0.75rem;
+    }
+
+    .profile-actions .action-btn,
+    .profile-actions .secondary-btn,
+    .profile-actions .edit-profile-btn {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .profile-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
+    }
+
+    .profile-tab {
+        width: 100%;
+        padding: 0.5rem 0.35rem;
+        font-size: 0.95rem;
+    }
+}
 
 /* Chatbot FAB - Bottom Right */
 .chatbot-fab {
