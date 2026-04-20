@@ -856,6 +856,38 @@ const ALLOWED_GUESTS = [
     ];
 
 const LOCAL_STORAGE_KEY = 'career-booster-data';
+const TARGET_SELECTION_TOKENS_KEY = 'admin_target_selection_tokens';
+
+type TargetSelectionToken = {
+    token: string;
+    userName: string;
+    userEmail: string;
+    professorName: string;
+    branchName: string;
+    professorId: string;
+    createdAt: string;
+};
+
+const loadTargetSelectionTokens = (): TargetSelectionToken[] => {
+    try {
+        const raw = localStorage.getItem(TARGET_SELECTION_TOKENS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((item) => item && item.token && item.userName && item.professorName);
+    } catch {
+        return [];
+    }
+};
+
+const saveTargetSelectionTokens = (tokens: TargetSelectionToken[]) => {
+    try { localStorage.setItem(TARGET_SELECTION_TOKENS_KEY, JSON.stringify(tokens)); } catch (e) { /* ignore */ }
+};
+
+const createTargetSelectionToken = () => {
+    const ts = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `TGT-${ts}-${rand}`;
+};
 
 const loadLocalData = (): AppData | null => {
     try {
@@ -1469,8 +1501,9 @@ const AdminDashboardModal = ({
     onVisitorsRefresh: () => Promise<void>;
     onVisitorsUpdate: (next: { id?: string; name?: string; email?: string; created_at?: string; role?: string; location?: string }[]) => void;
 }) => {
-    const [section, setSection] = useState<'activity' | 'users' | 'database'>('activity');
+    const [section, setSection] = useState<'activity' | 'users' | 'tokens' | 'database'>('activity');
     const [logs, setLogs] = useState<LogEntry[]>(() => apiLogger.getLogs());
+    const [targetTokens, setTargetTokens] = useState<TargetSelectionToken[]>(() => loadTargetSelectionTokens());
     const [userMeta, setUserMeta] = useState<Record<string, { role?: string; location?: string; hidden?: boolean }>>(() => {
         try {
             const raw = localStorage.getItem('admin_user_meta');
@@ -1490,6 +1523,21 @@ const AdminDashboardModal = ({
     useEffect(() => {
         const unsub = apiLogger.subscribe((nextLogs) => setLogs([...nextLogs]));
         return () => { try { unsub(); } catch (e) {} };
+    }, []);
+
+    useEffect(() => {
+        const onTokenCreated = (ev: Event) => {
+            const customEv = ev as CustomEvent<TargetSelectionToken>;
+            const incoming = customEv.detail;
+            if (!incoming || !incoming.token) return;
+            setTargetTokens((prev) => {
+                if (prev.some((item) => item.token === incoming.token)) return prev;
+                return [incoming, ...prev];
+            });
+        };
+
+        window.addEventListener('targetSelectionTokenCreated', onTokenCreated as EventListener);
+        return () => window.removeEventListener('targetSelectionTokenCreated', onTokenCreated as EventListener);
     }, []);
 
     useEffect(() => {
@@ -1623,6 +1671,14 @@ const AdminDashboardModal = ({
         return Object.keys(tableRows[0]);
     }, [tableRows]);
 
+    const sortedTargetTokens = useMemo(() => {
+        return [...targetTokens].sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
+    }, [targetTokens]);
+
+    const refreshTargetTokens = useCallback(() => {
+        setTargetTokens(loadTargetSelectionTokens());
+    }, []);
+
     return (
         <>
             <div className="modal-overlay is-visible" role="dialog" aria-modal="true" aria-label="Admin Dashboard">
@@ -1652,6 +1708,7 @@ const AdminDashboardModal = ({
                     <div className="admin-dashboard-nav">
                         <button className={`admin-nav-btn ${section === 'activity' ? 'active' : ''}`} onClick={() => setSection('activity')}>Activity</button>
                         <button className={`admin-nav-btn ${section === 'users' ? 'active' : ''}`} onClick={() => setSection('users')}>Users</button>
+                        <button className={`admin-nav-btn ${section === 'tokens' ? 'active' : ''}`} onClick={() => setSection('tokens')}>Target Tokens</button>
                         <button className={`admin-nav-btn ${section === 'database' ? 'active' : ''}`} onClick={() => setSection('database')}>Supabase Explorer</button>
                     </div>
 
@@ -1737,6 +1794,48 @@ const AdminDashboardModal = ({
                                         </tbody>
                                     </table>
                                     {allUsers.length === 0 && <div className="admin-empty">No users available for management.</div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {section === 'tokens' && (
+                            <div className="admin-section-card">
+                                <div className="admin-section-title-row">
+                                    <h3>Target Selection Tokens</h3>
+                                    <button className="modal-btn secondary" onClick={refreshTargetTokens}>Refresh Tokens</button>
+                                </div>
+                                <div className="admin-metrics-row">
+                                    <div className="admin-metric"><strong>{sortedTargetTokens.length}</strong><span>Total Tokens</span></div>
+                                    <div className="admin-metric"><strong>{sortedTargetTokens.filter((t) => Date.now() - Date.parse(t.createdAt || '') <= 86400000).length}</strong><span>Last 24h</span></div>
+                                    <div className="admin-metric"><strong>{new Set(sortedTargetTokens.map((t) => t.userEmail || t.userName)).size}</strong><span>Unique Students</span></div>
+                                </div>
+                                <div className="admin-user-table-wrap">
+                                    {sortedTargetTokens.length === 0 ? (
+                                        <div className="admin-empty">No target tokens generated yet.</div>
+                                    ) : (
+                                        <table className="admin-user-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Token</th>
+                                                    <th>Student</th>
+                                                    <th>Professor</th>
+                                                    <th>Branch</th>
+                                                    <th>Created At</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {sortedTargetTokens.map((t) => (
+                                                    <tr key={t.token}>
+                                                        <td>{t.token}</td>
+                                                        <td>{t.userName}</td>
+                                                        <td>{t.professorName}</td>
+                                                        <td>{t.branchName}</td>
+                                                        <td>{t.createdAt ? new Date(t.createdAt).toLocaleString() : 'Unknown'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -4804,7 +4903,7 @@ const QuizzesModal = ({ onClose, userRole, onStartInterview }: { onClose: () => 
                         activeSection && (
                             <div className="cert-provider-group">
                                 <div className="cert-provider-grid">
-                                    {activeTab === 'Interviewer' && userRole === 'public' ? (
+                                    {activeTab === 'Interviewer' ? (
                                         <InterviewerSelectorPanel onStartInterview={onStartInterview} />
                                     ) : (
                                         activeSection.items.map((item, i) => (
@@ -5281,6 +5380,7 @@ const GitHubSearch = () => {
 // Defined LAST so it can access all sub-components without ReferenceErrors
 export const App = () => {
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
+    const [showInterviewConstructionNotice, setShowInterviewConstructionNotice] = useState(false);
     const [userRole, setUserRole] = useState<'admin' | 'public' | null>(null);
     const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; photo?: string; location?: string } | null>(null);
     const [data, setData] = useState<AppData | null>(null);
@@ -5437,6 +5537,33 @@ export const App = () => {
         if (userRole === 'public' && currentUser) {
             setGuestTarget(profId);
             localStorage.setItem(`guest_target_${currentUser.email}`, profId);
+
+            const profFromMap = data?.professors?.[profId];
+            const profFromList = !profFromMap
+                ? Object.values(data?.professors || {}).find((p: any) => p?.id === profId || p?._id === profId)
+                : null;
+            const targetProfessor: any = profFromMap || profFromList;
+            const branchId = targetProfessor?.branch || '';
+            const branchName = (branchId && data?.branches?.[branchId]?.name) || branchId || 'Unknown';
+
+            const tokenEntry: TargetSelectionToken = {
+                token: createTargetSelectionToken(),
+                userName: currentUser.name || 'Unknown User',
+                userEmail: currentUser.email || '',
+                professorName: targetProfessor?.name || profId,
+                branchName,
+                professorId: profId,
+                createdAt: new Date().toISOString()
+            };
+
+            const existingTokens = loadTargetSelectionTokens();
+            saveTargetSelectionTokens([tokenEntry, ...existingTokens]);
+
+            try {
+                const ev = new CustomEvent('targetSelectionTokenCreated', { detail: tokenEntry });
+                window.dispatchEvent(ev);
+            } catch (e) { /* ignore */ }
+
             showToast("Target professor set! 'Mine' dashboard unlocked.");
         }
         // always set selected professor id so Mine can center on it for admins too
@@ -5948,7 +6075,10 @@ export const App = () => {
     }
 
     if (isInterviewLoading) {
-        return <InterviewLoadingScreen theme={theme} onDone={() => { setIsInterviewLoading(false); }} />;
+        return <InterviewLoadingScreen theme={theme} onDone={() => {
+            setIsInterviewLoading(false);
+            setShowInterviewConstructionNotice(true);
+        }} />;
     }
 
     return (
@@ -5974,6 +6104,20 @@ export const App = () => {
                 </div>
             </main>
             {MemoizedSidePanel}
+
+            {showInterviewConstructionNotice && (
+                <div className="modal-overlay is-visible" role="dialog" aria-modal="true" aria-label="Interview Under Construction">
+                    <div className="modal-content" style={{ maxWidth: 560 }}>
+                        <h3 style={{ marginTop: 0 }}>Interview Section Update</h3>
+                        <p style={{ marginBottom: '1rem', lineHeight: 1.6 }}>
+                            Under Construction — interviewer  features will be available to registered users soon. Please log in to access coding tracker and progress analytics.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button className="modal-btn primary" onClick={() => setShowInterviewConstructionNotice(false)}>OK</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {userRole === 'admin' && (
                 <button type="button" aria-label="Add Professor" title="Add Professor" className="add-btn floating-add-btn" onClick={() => setActiveModal('add-professor')}>
