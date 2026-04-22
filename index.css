@@ -1,4 +1,9 @@
 /* --- Interview Loading Screen Enhancements --- */
+img {
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
 .interview-loading-overlay {
     position: fixed;
     inset: 0;

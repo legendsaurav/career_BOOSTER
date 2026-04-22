@@ -40,6 +40,10 @@ function getRandomQuoteIdx(used: number[]) {
   return available[Math.floor(Math.random() * available.length)];
 }
 
+const preventImageDrag = (e: React.DragEvent<HTMLImageElement>) => {
+    e.preventDefault();
+};
+
 export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme }: { duration?: number; onDone?: () => void; theme?: 'light' | 'dark' }) {
   const [countdown, setCountdown] = useState(duration);
   const [quoteIdx, setQuoteIdx] = useState(() => Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length));
@@ -383,6 +387,8 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                 <img
                                     src={iv.avatar}
                                     alt={iv.name}
+                                    draggable={false}
+                                    onDragStart={preventImageDrag}
                                     onError={(e) => {
                                         e.currentTarget.onerror = null;
                                         e.currentTarget.src = '/photos/team.png';
@@ -1268,7 +1274,7 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                     <button className="theme-toggle-btn" onClick={onToggleTheme} aria-label="Toggle theme">{theme === 'dark' ? '🌙' : '☀️'}</button>
                 </div>
                 <div className="login-branding">
-                    <img src={"/converted_image.png"} alt="Career Booster" className="login-logo" />
+                    <img src={"/converted_image.png"} alt="Career Booster" className="login-logo" draggable={false} onDragStart={preventImageDrag} />
                     <h1 className="site-title" style={{color: 'white', marginTop: '1rem', textShadow: '0 2px 8px #0002'}}>Career Booster</h1>
                     <p style={{color: '#e0e0e0', fontWeight: 500, textShadow: '0 1px 4px #0001'}}>Unlock your potential. Manage and explore academic profiles with ease.</p>
                 </div>
@@ -1406,13 +1412,13 @@ const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | '
     <header className="site-header">
         {/* Left: small profile avatar moved to left as requested */}
         <button className="header-avatar" onClick={onAvatarClick} aria-label="Open profile" style={{left:'20px'}}>
-            <img src={avatarSrc} alt="Profile" />
+            <img src={avatarSrc} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
         </button>
 
         {/* Center: Branding (logo badge + title) */}
         <div className="center-branding" role="banner" onClick={onHomeClick} style={{cursor: 'pointer'}}>
                 <span className="logo-badge" aria-hidden>
-                <img src={"/converted_image.png"} alt="" className="logo-img" />
+                <img src={"/converted_image.png"} alt="" className="logo-img" draggable={false} onDragStart={preventImageDrag} />
             </span>
             <h1 className="site-title">Career Booster</h1>
         </div>
@@ -2664,7 +2670,7 @@ const ProjectSearchWidget = ({ defaultQuery }: { defaultQuery?: string }) => {
                 {Object.keys(users).length === 0 && !loading && <div style={{color:'#666'}}>No users found yet. Try a broader query.</div>}
                 {Object.entries(users).map(([user, data]) => (
                     <div key={user} className="github-user-card">
-                        <div className="github-user-avatar"><img src={data.avatar} alt={user} style={{width:'100%', height:'100%', objectFit:'cover'}}/></div>
+                        <div className="github-user-avatar"><img src={data.avatar} alt={user} draggable={false} onDragStart={preventImageDrag} style={{width:'100%', height:'100%', objectFit:'cover'}}/></div>
                         <div className="github-user-meta">
                             <h4><a href={data.profile} target="_blank" rel="noopener noreferrer">{user}</a></h4>
                             {data.bio && <p>{data.bio}</p>}
@@ -2934,7 +2940,7 @@ const ProfessorListItem = ({ professor, onNavigate, onEdit, onRemove }: any) => 
     return (
         <div className="professor-list-item" onClick={() => onNavigate({ view: 'professor', id: professor.id })}>
             <div className="list-photo">
-                <img src={professor.photo} alt={professor.name} className="list-photo-img" onError={handleImageError} />
+                <img src={professor.photo} alt={professor.name} className="list-photo-img" draggable={false} onDragStart={preventImageDrag} onError={handleImageError} />
             </div>
 
             <div className="list-details">
@@ -2966,6 +2972,8 @@ const ProfessorCard = ({ professor, onNavigate, onEdit }: any) => {
                     src={professor.photo} 
                     alt={professor.name} 
                     className="professor-photo" 
+                    draggable={false}
+                    onDragStart={preventImageDrag}
                     onError={handleImageError}
                 />
                 {onEdit && (
@@ -3084,6 +3092,8 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                 <img
                     src={profilePhotoSrc}
                     className="profile-photo-large"
+                    draggable={false}
+                    onDragStart={preventImageDrag}
                     onError={(e) => {
                         const img = e.target as HTMLImageElement;
                         img.onerror = null;
@@ -3580,7 +3590,7 @@ const EditProfessorModal = ({ professor, onClose, onSave, departments }: any) =>
                     <div className="form-group">
                         <label>Photo</label>
                         <input type="file" accept="image/*" onChange={handleFileChange} />
-                        {form.photoPreview && <div style={{marginTop:8}}><img src={form.photoPreview} alt="Preview" style={{width:120, height:120, objectFit:'cover', borderRadius:8}}/></div>}
+                        {form.photoPreview && <div style={{marginTop:8}}><img src={form.photoPreview} alt="Preview" draggable={false} onDragStart={preventImageDrag} style={{width:120, height:120, objectFit:'cover', borderRadius:8}}/></div>}
                     </div>
 
                     <div className="form-group">
@@ -4120,6 +4130,8 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
                                     src={getLogoCandidates(group.provider)[0]}
                                     alt={group.provider}
                                     className="provider-header-logo"
+                                    draggable={false}
+                                    onDragStart={preventImageDrag}
                                     onError={(e) => {
                                         const img = e.currentTarget;
                                         const candidates = getLogoCandidates(group.provider);
@@ -4297,7 +4309,7 @@ const AlumniNetworkingModal = ({ onClose, userRole }: { onClose: () => void, use
                             {results.map((profile, idx) => (
                                 <div key={idx} className="alumni-card">
                                     <div className="alumni-card-header">
-                                        <img src={profile.photo} alt={profile.name} className="alumni-avatar" onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/60'} />
+                                        <img src={profile.photo} alt={profile.name} className="alumni-avatar" draggable={false} onDragStart={preventImageDrag} onError={(e) => (e.target as HTMLImageElement).src = 'https://via.placeholder.com/60'} />
                                         <div className="alumni-info">
                                             <h4>{profile.name}</h4>
                                             <span>IIT Ropar Alumni</span>
@@ -5350,7 +5362,7 @@ const GitHubSearch = () => {
                 <div style={{display:'grid', gap:12}}>
                     {Object.entries(grouped).map(([user, data]) => (
                         <div key={user} className="github-user-card" style={{display:'flex', gap:12, padding:12, borderRadius:8, border:'1px solid #f0f0f0'}}>
-                            <div style={{width:72, height:72, borderRadius:8, overflow:'hidden'}}><img src={data.avatar} alt={user} style={{width:'100%', height:'100%', objectFit:'cover'}}/></div>
+                            <div style={{width:72, height:72, borderRadius:8, overflow:'hidden'}}><img src={data.avatar} alt={user} draggable={false} onDragStart={preventImageDrag} style={{width:'100%', height:'100%', objectFit:'cover'}}/></div>
                             <div style={{flex:1}}>
                                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                                     <div>
@@ -6206,7 +6218,7 @@ export const App = () => {
                             <div className="linkedin-banner">
                                 <button className="linkedin-close-btn" onClick={closePersonalPanel}>&times;</button>
                                 <div className="linkedin-avatar-container">
-                                    <img src={currentUser && currentUser.photo ? currentUser.photo : '/photos/team.png'} alt="Profile" />
+                                    <img src={currentUser && currentUser.photo ? currentUser.photo : '/photos/team.png'} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
                                 </div>
                             </div>
                             
