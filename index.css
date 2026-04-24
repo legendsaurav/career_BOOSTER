@@ -3264,14 +3264,119 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
 :root[data-theme="dark"] small,
 :root[data-theme="dark"] strong,
 :root[data-theme="dark"] em,
-:root[data-theme="dark"] button,
-:root[data-theme="dark"] input,
-:root[data-theme="dark"] textarea,
-:root[data-theme="dark"] select,
 :root[data-theme="dark"] .job-snippet,
 :root[data-theme="dark"] .source-chip,
 :root[data-theme="dark"] .job-meta {
     color: #ffffff !important;
+}
+
+/* Homepage PUBLIC/MINE readability in dark mode */
+:root[data-theme="dark"] .home-tab {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .home-tab.active {
+    background-color: #1e293b !important;
+    color: #93c5fd !important;
+}
+
+:root[data-theme="dark"] .public-section-card {
+    background: #162236 !important;
+    border: 1px solid #3c4d66 !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root[data-theme="dark"] .public-section-card .job-card,
+:root[data-theme="dark"] .public-section-card .cert-header-sticky {
+    background: #1b2b43 !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .public-section-card h3,
+:root[data-theme="dark"] .public-section-card p,
+:root[data-theme="dark"] .public-section-card .job-title,
+:root[data-theme="dark"] .public-section-card .job-meta,
+:root[data-theme="dark"] .public-section-card .job-snippet,
+:root[data-theme="dark"] .public-section-card .source-chip {
+    color: #ffffff !important;
+}
+
+/* Professor details page readability in dark mode */
+:root[data-theme="dark"] .professor-profile {
+    background: #162236 !important;
+    border: 1px solid #3c4d66 !important;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root[data-theme="dark"] .profile-header,
+:root[data-theme="dark"] .profile-body,
+:root[data-theme="dark"] .profile-tab-content {
+    background: transparent !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .profile-info h1,
+:root[data-theme="dark"] .profile-info h2,
+:root[data-theme="dark"] .profile-info p,
+:root[data-theme="dark"] .profile-body h3,
+:root[data-theme="dark"] .profile-body li,
+:root[data-theme="dark"] .companies-list,
+:root[data-theme="dark"] .lecture-title,
+:root[data-theme="dark"] .empty-note,
+:root[data-theme="dark"] .profile-webpage-url small {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .profile-tab {
+    background: #1b2b43 !important;
+    border-color: #3c4d66 !important;
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .profile-tab.active {
+    background: #233451 !important;
+    border-color: #4b5f7d !important;
+    color: #93c5fd !important;
+}
+
+:root[data-theme="dark"] .lecture-item {
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.35) !important;
+}
+
+/* Department professor cards/list readability in dark mode */
+:root[data-theme="dark"] .professor-card {
+    background: #162236 !important;
+    border-color: #3c4d66 !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root[data-theme="dark"] .professor-details {
+    background: #1b2b43 !important;
+}
+
+:root[data-theme="dark"] .professor-links {
+    background: #233451 !important;
+    border-top-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .professor-name-clickable,
+:root[data-theme="dark"] .professor-details .position,
+:root[data-theme="dark"] .professor-details .email,
+:root[data-theme="dark"] .professor-links,
+:root[data-theme="dark"] .professor-links a,
+:root[data-theme="dark"] .professor-links span,
+:root[data-theme="dark"] .professor-list-item .list-name,
+:root[data-theme="dark"] .professor-list-item .list-position,
+:root[data-theme="dark"] .professor-list-item .list-email,
+:root[data-theme="dark"] .professor-list-item .view-profile-link {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .professor-list-item {
+    background: #162236 !important;
+    border-color: #3c4d66 !important;
 }
 
 :root[data-theme="dark"] .site-header {
