@@ -2021,6 +2021,18 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
         return keywords.some(k => text.includes(k)) || Boolean(item.pagemap?.JobPosting);
     };
 
+    const buildAnnouncementQueries = (userQuery = '') => {
+        const suffix = userQuery ? ` ${userQuery}` : '';
+        const primary = 'site:linkedin.com/posts ( Internship Group Global Early Talent Platform ) ( internship OR challenge OR hiring )';
+        const fallback1 = 'site:linkedin.com/posts ("Internship Group" OR "Global Early Talent Platform" OR "early talent platform") ("internship" OR "challenge" OR "hiring")';
+        const fallback2 = 'site:linkedin.com/posts ("internship" OR "challenge" OR "hiring" OR "early talent")';
+        return [
+            `${primary}${suffix}`.trim(),
+            `${fallback1}${suffix}`.trim(),
+            `${fallback2}${suffix}`.trim()
+        ];
+    };
+
     const buildQuery = (userQuery = '') => {
         const effectiveMode = mode === 'preview' && queryTarget ? queryTarget : mode;
         if (effectiveMode === 'news') {
@@ -2028,8 +2040,7 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
             return `${userQuery} ${terms}`.trim();
         }
         // announcements
-        const keywords = '"hi we are hiring"';
-        return `${userQuery} ${keywords}`.trim();
+        return buildAnnouncementQueries(userQuery)[0];
     };
 
     const fetchWithRetry = async (url: string, retries = 4) => {
@@ -2063,8 +2074,11 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
         if (!effectiveApiKey || !effectiveCx) { setShowConfig(true); return; }
 
         const userQuery = query.trim();
-        const finalQuery = buildQuery(userQuery);
-        const cacheKey = `${mode}::${finalQuery}::${requestedStart}::${pageSize}`;
+        const effectiveMode = mode === 'preview' && queryTarget ? queryTarget : mode;
+        const queryVariants = effectiveMode === 'announcements' ? buildAnnouncementQueries(userQuery) : [buildQuery(userQuery)];
+        const dateRestrictParam = effectiveMode === 'announcements' ? '&dateRestrict=w1' : '';
+        const primaryQuery = queryVariants[0];
+        const cacheKey = `${mode}::${primaryQuery}::${requestedStart}::${pageSize}`;
         if (cache.current.has(cacheKey)) {
             const cached = cache.current.get(cacheKey) || [];
             if (append) setResults(prev => [...prev, ...cached.filter(c => !prev.some(p => p.link === c.link))]);
@@ -2076,9 +2090,15 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
 
         setLoading(true);
         try {
-            const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(effectiveApiKey)}&cx=${encodeURIComponent(effectiveCx)}&q=${encodeURIComponent(finalQuery)}&num=${pageSize}&start=${startIndex}`;
-            const data = await fetchWithRetry(url);
-            if (data?.error) throw new Error(data.error.message || 'Search error');
+            let data: any = null;
+            for (const q of queryVariants) {
+                const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(effectiveApiKey)}&cx=${encodeURIComponent(effectiveCx)}&q=${encodeURIComponent(q)}&num=${pageSize}&start=${requestedStart}${dateRestrictParam}`;
+                const attempt = await fetchWithRetry(url);
+                if (attempt?.error) throw new Error(attempt.error.message || 'Search error');
+                data = attempt;
+                if ((attempt?.items || []).length > 0) break;
+            }
+            if (!data) throw new Error('Search failed');
 
             const items = data.items || [];
             const mapped: JobItem[] = items.map((it: any) => ({
