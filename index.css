@@ -3244,8 +3244,34 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
     --background-color: #0b1220;
     --content-background: #162236;
     --text-color: #f8fafc;
-    --subtle-text-color: #bcc9dc;
+    --subtle-text-color: #ffffff;
     --border-color: #3c4d66;
+}
+
+/* Enforce white readable text in dark mode across the app */
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] h5,
+:root[data-theme="dark"] h6,
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] span,
+:root[data-theme="dark"] li,
+:root[data-theme="dark"] a,
+:root[data-theme="dark"] label,
+:root[data-theme="dark"] small,
+:root[data-theme="dark"] strong,
+:root[data-theme="dark"] em,
+:root[data-theme="dark"] button,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] .job-snippet,
+:root[data-theme="dark"] .source-chip,
+:root[data-theme="dark"] .job-meta {
+    color: #ffffff !important;
 }
 
 :root[data-theme="dark"] .site-header {
@@ -3339,8 +3365,109 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
         #060b14;
 }
 
+/* Login panel readability in dark mode */
+:root[data-theme="dark"] .login-box {
+    background: #0f172a !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .login-form-area {
+    background: #162236 !important;
+}
+
+:root[data-theme="dark"] .login-form h2,
+:root[data-theme="dark"] .input-group label,
+:root[data-theme="dark"] .login-form,
+:root[data-theme="dark"] .login-form-area {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .login-toggle {
+    background: #1b2b43 !important;
+    border: 1px solid #3c4d66;
+}
+
+:root[data-theme="dark"] .toggle-option {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .input-wrapper input,
+:root[data-theme="dark"] .login-form input {
+    background: linear-gradient(180deg, rgba(20, 30, 46, 0.96), rgba(16, 25, 40, 0.96)) !important;
+    border-color: #3c4d66 !important;
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .input-wrapper input::placeholder,
+:root[data-theme="dark"] .login-form input::placeholder {
+    color: #cbd5e1 !important;
+    opacity: 1;
+}
+
 :root[data-theme="dark"] .main-container {
     background: transparent;
+}
+
+/* Ensure right navigation/departments panel is dark in dark mode */
+:root[data-theme="dark"] .side-panel {
+    background: #0f172a !important;
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.55) !important;
+}
+
+:root[data-theme="dark"] .side-panel-header,
+:root[data-theme="dark"] .departments-list {
+    background: #162236 !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .side-panel h2,
+:root[data-theme="dark"] .department-name,
+:root[data-theme="dark"] .departments-list [style*="color:#888"],
+:root[data-theme="dark"] .departments-list [style*="color: #888"] {
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .department-name:hover {
+    background-color: #1b2b43 !important;
+    color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .side-panel .close-btn {
+    color: #ffffff !important;
+    border-color: #3c4d66 !important;
+}
+
+/* Ensure left profile panel sections stay dark in dark mode */
+:root[data-theme="dark"] .personal-panel {
+    background: #0f172a !important;
+    box-shadow: 5px 0 30px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="dark"] .linkedin-profile-container {
+    background: #0f172a !important;
+}
+
+:root[data-theme="dark"] .linkedin-header,
+:root[data-theme="dark"] .linkedin-section {
+    background: #162236 !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .linkedin-dashboard-card {
+    background: #1b2b43 !important;
+    border-color: #3c4d66 !important;
+}
+
+/* Self-dev panel uses inline light styles; force dark in dark mode */
+:root[data-theme="dark"] .self-dev-panel {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    box-shadow: 5px 0 30px rgba(0, 0, 0, 0.55) !important;
+}
+
+:root[data-theme="dark"] .self-dev-header,
+:root[data-theme="dark"] .self-dev-body {
+    color: #ffffff !important;
 }
 
 :root[data-theme="dark"] .modal-overlay {
@@ -3374,6 +3501,11 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
     background: #ffffff;
     color: #0f172a;
     border-color: #dbe4f0;
+}
+
+:root[data-theme="dark"] .cv-launch-content,
+:root[data-theme="dark"] .cv-launch-content * {
+    color: #0f172a !important;
 }
 
 :root[data-theme="dark"] .cv-launch-content .modal-title,
