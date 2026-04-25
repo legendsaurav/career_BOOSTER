@@ -898,6 +898,8 @@ const ALLOWED_GUESTS = [
 
 const LOCAL_STORAGE_KEY = 'career-booster-data';
 const TARGET_SELECTION_TOKENS_KEY = 'admin_target_selection_tokens';
+const APP_SESSION_STATE_KEY = 'career-booster-session-state';
+const APP_INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
 type TargetSelectionToken = {
     token: string;
@@ -907,6 +909,40 @@ type TargetSelectionToken = {
     branchName: string;
     professorId: string;
     createdAt: string;
+};
+
+type PersistedSessionState = {
+    userRole: 'admin' | 'public';
+    currentUser: { name: string; email: string; role: string; photo?: string; location?: string };
+    viewStack: View[];
+    hasSetTarget: boolean;
+    guestTarget: string | null;
+    selectedProfessorId: string | null;
+    isPersonalPanelOpen: boolean;
+    lastActivityAt: number;
+};
+
+const loadSessionState = (): PersistedSessionState | null => {
+    try {
+        const raw = localStorage.getItem(APP_SESSION_STATE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as PersistedSessionState;
+        if (!parsed || (parsed.userRole !== 'admin' && parsed.userRole !== 'public')) return null;
+        if (!parsed.currentUser || !parsed.currentUser.email) return null;
+        if (!Array.isArray(parsed.viewStack) || parsed.viewStack.length === 0) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+
+const saveSessionState = (state: PersistedSessionState | null) => {
+    try {
+        if (!state) localStorage.removeItem(APP_SESSION_STATE_KEY);
+        else localStorage.setItem(APP_SESSION_STATE_KEY, JSON.stringify(state));
+    } catch {
+        // ignore storage errors
+    }
 };
 
 const loadTargetSelectionTokens = (): TargetSelectionToken[] => {
@@ -5466,23 +5502,25 @@ const GitHubSearch = () => {
 export const App = () => {
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
     const [showInterviewConstructionNotice, setShowInterviewConstructionNotice] = useState(false);
-    const [userRole, setUserRole] = useState<'admin' | 'public' | null>(null);
-    const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; photo?: string; location?: string } | null>(null);
+    const [restoredSession, setRestoredSession] = useState<PersistedSessionState | null>(() => loadSessionState());
+    const [userRole, setUserRole] = useState<'admin' | 'public' | null>(() => loadSessionState()?.userRole ?? null);
+    const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; photo?: string; location?: string } | null>(() => loadSessionState()?.currentUser ?? null);
     const [data, setData] = useState<AppData | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSidePanelOpen, setSidePanelOpen] = useState(false);
-    const [isPersonalPanelOpen, setPersonalPanelOpen] = useState(false);
+    const [isPersonalPanelOpen, setPersonalPanelOpen] = useState<boolean>(() => loadSessionState()?.isPersonalPanelOpen ?? false);
     const [isSelfDevOpen, setSelfDevOpen] = useState(false);
-    const [hasSetTarget, setHasSetTarget] = useState(false);
+    const [hasSetTarget, setHasSetTarget] = useState<boolean>(() => loadSessionState()?.hasSetTarget ?? false);
     // New state for guest target tracking
-    const [guestTarget, setGuestTarget] = useState<string | null>(null);
+    const [guestTarget, setGuestTarget] = useState<string | null>(() => loadSessionState()?.guestTarget ?? null);
     // Visitors (admin view)
     const [visitors, setVisitors] = useState<{ id?: string; name?: string; email?: string }[]>([]);
     const prevVisitorsRef = useRef<{ id?: string; name?: string; email?: string }[]>([]);
     const [showVisitors, setShowVisitors] = useState(false);
     const [showInspectCredit, setShowInspectCredit] = useState(false);
     // Selected professor id for Mine dashboard (works for admin and guests)
-    const [selectedProfessorId, setSelectedProfessorId] = useState<string | null>(null);
+    const [selectedProfessorId, setSelectedProfessorId] = useState<string | null>(() => loadSessionState()?.selectedProfessorId ?? null);
+    const [lastActivityAt, setLastActivityAt] = useState<number>(() => loadSessionState()?.lastActivityAt ?? Date.now());
 
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         try {
@@ -5533,11 +5571,85 @@ export const App = () => {
     const [newsCxInput, setNewsCxInput] = useState<string>(() => localStorage.getItem('GOOGLE_SEARCH_CX_NEWS') || '');
     const [annKeyInput, setAnnKeyInput] = useState<string>(() => localStorage.getItem('GOOGLE_SEARCH_KEY_ANNOUNCEMENTS') || '');
     const [annCxInput, setAnnCxInput] = useState<string>(() => localStorage.getItem('GOOGLE_SEARCH_CX_ANNOUNCEMENTS') || '');
-    const [viewStack, setViewStack] = useState<View[]>([{ view: 'home' }]);
+    const [viewStack, setViewStack] = useState<View[]>(() => loadSessionState()?.viewStack || [{ view: 'home' }]);
     const [activeModal, setActiveModal] = useState<string | null>(null); // 'add-professor', 'edit-professor', 'certificates', 'quizzes', 'alumni'
     const [editingProfessor, setEditingProfessor] = useState<Professor | null>(null);
     const [apiStatus, setApiStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
     const showToast = useToast();
+
+    const touchSession = useCallback(() => {
+        if (!userRole || !currentUser) return;
+        setLastActivityAt(Date.now());
+    }, [currentUser, userRole]);
+
+    useEffect(() => {
+        if (!userRole || !currentUser) {
+            saveSessionState(null);
+            setRestoredSession(null);
+            return;
+        }
+
+        saveSessionState({
+            userRole,
+            currentUser,
+            viewStack,
+            hasSetTarget,
+            guestTarget,
+            selectedProfessorId,
+            isPersonalPanelOpen,
+            lastActivityAt,
+        });
+    }, [currentUser, guestTarget, hasSetTarget, isPersonalPanelOpen, lastActivityAt, selectedProfessorId, userRole, viewStack]);
+
+    useEffect(() => {
+        if (!userRole || !currentUser) return;
+
+        const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click', 'focus'];
+        const handleActivity = () => setLastActivityAt(Date.now());
+        events.forEach((eventName) => window.addEventListener(eventName, handleActivity, { passive: true }));
+
+        const intervalId = window.setInterval(() => {
+            const staleFor = Date.now() - lastActivityAt;
+            if (staleFor >= APP_INACTIVITY_LIMIT_MS) {
+                try { logout().catch(() => {}); } catch (e) {}
+                try {
+                    if (currentUser && currentUser.email) {
+                        localStorage.removeItem(`guest_target_${currentUser.email}`);
+                        Object.keys(localStorage).forEach((k) => {
+                            if (k.startsWith(`MINE_CUSTOM_COMPANIES_PUBLIC_`)) {
+                                localStorage.removeItem(k);
+                            }
+                        });
+                    }
+                } catch (e) {}
+                setUserRole(null);
+                setCurrentUser(null);
+                setGuestTarget(null);
+                setSelectedProfessorId(null);
+                setViewStack([{ view: 'home' }]);
+                setPersonalPanelOpen(false);
+                setHasSetTarget(false);
+                setLastActivityAt(Date.now());
+                setRestoredSession(null);
+            }
+        }, 30000);
+
+        return () => {
+            events.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+            window.clearInterval(intervalId);
+        };
+    }, [currentUser, lastActivityAt, userRole]);
+
+    useEffect(() => {
+        if (!restoredSession || !userRole || !currentUser) return;
+        setViewStack(restoredSession.viewStack);
+        setGuestTarget(restoredSession.guestTarget);
+        setSelectedProfessorId(restoredSession.selectedProfessorId);
+        setHasSetTarget(restoredSession.hasSetTarget);
+        setPersonalPanelOpen(restoredSession.isPersonalPanelOpen);
+        setLastActivityAt(restoredSession.lastActivityAt || Date.now());
+        setRestoredSession(null);
+    }, [currentUser, restoredSession, userRole]);
 
     // Side Effects
     useEffect(() => {
@@ -5619,6 +5731,7 @@ export const App = () => {
     }, [currentUser, userRole]);
 
     const handleSetGuestTarget = (profId: string) => {
+        touchSession();
         if (userRole === 'public' && currentUser) {
             setGuestTarget(profId);
             localStorage.setItem(`guest_target_${currentUser.email}`, profId);
@@ -5937,23 +6050,31 @@ export const App = () => {
         const ADMIN_EMAIL_2 = 'admin123@gmail.com';
         const ADMIN_PASSWORD_2 = 'admin123';
         if (email === ADMIN_EMAIL_1 && pass === ADMIN_PASSWORD_1) {
-            setUserRole('admin');
-            setCurrentUser({
+            const nextUser = {
                 name: 'Administrator',
                 email: email || 'admin',
                 role: 'System Admin',
                 photo: '/photos/team.png',
-            });
+            };
+            setUserRole('admin');
+            setCurrentUser(nextUser);
+            setLastActivityAt(Date.now());
+            setRestoredSession(null);
+            setViewStack([{ view: 'home' }]);
             return true;
         }
         if (email === ADMIN_EMAIL_2 && pass === ADMIN_PASSWORD_2) {
-            setUserRole('admin');
-            setCurrentUser({
+            const nextUser = {
                 name: 'Administrator',
                 email: email || 'admin',
                 role: 'System Admin',
                 photo: '/photos/chandan%20behera.png',
-            });
+            };
+            setUserRole('admin');
+            setCurrentUser(nextUser);
+            setLastActivityAt(Date.now());
+            setRestoredSession(null);
+            setViewStack([{ view: 'home' }]);
             return true;
         }
         return false;
@@ -6011,6 +6132,8 @@ export const App = () => {
         // profile validated inside LoginPage; just set app state
         setUserRole('public');
         setCurrentUser({ name: profile.name, email: profile.email, role: profile.role || 'Student at IIT ROPAR', photo: profile.photo, location: profile.location });
+        setLastActivityAt(Date.now());
+        setRestoredSession(null);
         return true;
     };
 
@@ -6033,6 +6156,10 @@ export const App = () => {
         setGuestTarget(null);
         setSelectedProfessorId(null);
         setViewStack([{ view: 'home' }]);
+        setPersonalPanelOpen(false);
+        setHasSetTarget(false);
+        setLastActivityAt(Date.now());
+        setRestoredSession(null);
     };
         // Removed invalid block referencing 'profile' outside any function
 
@@ -6189,12 +6316,12 @@ export const App = () => {
                 apiStatus={apiStatus} 
                 onLogout={handleLogout} 
                 userRole={userRole} 
-                onAvatarClick={togglePersonalPanel} 
+                onAvatarClick={() => { touchSession(); togglePersonalPanel(); }} 
                 isPersonalPanelOpen={isPersonalPanelOpen} 
                 theme={theme} 
                 onToggleTheme={toggleTheme} 
                 currentUser={currentUser} 
-                onHomeClick={() => setViewStack([{ view: 'home' }])}
+                onHomeClick={() => { touchSession(); setViewStack([{ view: 'home' }]); }}
                 onOpenAdminPanel={() => setActiveModal('admin-dashboard')}
             />
             <main className="main-container">
@@ -6281,7 +6408,7 @@ export const App = () => {
                     <div className={`personal-panel ${isPersonalPanelOpen ? 'is-open' : ''}`} role="dialog" aria-modal="true" aria-label="Personal Profile">
                         <div className="linkedin-profile-container">
                             <div className="linkedin-banner">
-                                <button className="linkedin-close-btn" onClick={closePersonalPanel}>&times;</button>
+                                <button className="linkedin-close-btn" onClick={() => { touchSession(); closePersonalPanel(); }}>&times;</button>
                                 <div className="linkedin-avatar-container">
                                     <img src={currentUser && currentUser.photo ? currentUser.photo : '/photos/team.png'} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
                                 </div>
