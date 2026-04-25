@@ -44,6 +44,41 @@ const preventImageDrag = (e: React.DragEvent<HTMLImageElement>) => {
     e.preventDefault();
 };
 
+const DEFAULT_PROFESSOR_PHOTO = '/photos/team.png';
+
+const resolveProfessorPhotoSrc = (rawValue: unknown) => {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return DEFAULT_PROFESSOR_PHOTO;
+    if (/^data:/i.test(raw) || /^https?:\/\//i.test(raw)) return raw;
+
+    let normalized = raw.replace(/\\+/g, '/');
+
+    // Handle accidental absolute paths that include "/public/...".
+    const lower = normalized.toLowerCase();
+    const publicIdx = lower.indexOf('/public/');
+    if (publicIdx >= 0) {
+        normalized = normalized.slice(publicIdx + '/public'.length);
+    }
+
+    if (!normalized.startsWith('/')) {
+        normalized = `/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    try {
+        normalized = decodeURIComponent(normalized);
+    } catch {
+        // Keep original if decode fails.
+    }
+
+    return encodeURI(normalized);
+};
+
+const isGenericProfessorPhoto = (rawValue: unknown) => {
+    const raw = String(rawValue || '').trim().toLowerCase();
+    if (!raw) return true;
+    return raw === '/photos/team.png' || raw.startsWith('/photos/');
+};
+
 export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme }: { duration?: number; onDone?: () => void; theme?: 'light' | 'dark' }) {
   const [countdown, setCountdown] = useState(duration);
   const [quoteIdx, setQuoteIdx] = useState(() => Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length));
@@ -2953,14 +2988,15 @@ const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarge
 
 // 7. Professor List Item (new horizontal layout used in Directory)
 const ProfessorListItem = ({ professor, onNavigate, onEdit, onRemove }: any) => {
+    const photoSrc = resolveProfessorPhotoSrc(professor.photo);
     const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-        e.currentTarget.src = '/photos/team.png';
+        e.currentTarget.src = DEFAULT_PROFESSOR_PHOTO;
     };
 
     return (
         <div className="professor-list-item" onClick={() => onNavigate({ view: 'professor', id: professor.id })}>
             <div className="list-photo">
-                <img src={professor.photo} alt={professor.name} className="list-photo-img" draggable={false} onDragStart={preventImageDrag} onError={handleImageError} />
+                <img src={photoSrc} alt={professor.name} className="list-photo-img" draggable={false} onDragStart={preventImageDrag} onError={handleImageError} />
             </div>
 
             <div className="list-details">
@@ -2981,15 +3017,16 @@ const ProfessorListItem = ({ professor, onNavigate, onEdit, onRemove }: any) => 
 
 // 7b. Professor Card (kept for other places)
 const ProfessorCard = ({ professor, onNavigate, onEdit }: any) => {
+    const photoSrc = resolveProfessorPhotoSrc(professor.photo);
     const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-        e.currentTarget.src = '/photos/team.png';
+        e.currentTarget.src = DEFAULT_PROFESSOR_PHOTO;
     };
 
     return (
         <div className="professor-card" onClick={() => onNavigate({ view: 'professor', id: professor.id })}>
             <div className="card-photo-container">
                 <img 
-                    src={professor.photo} 
+                    src={photoSrc} 
                     alt={professor.name} 
                     className="professor-photo" 
                     draggable={false}
@@ -3075,11 +3112,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
             return getAiProfessorPhoto(professor?.name || '');
         }
 
-        const raw = String(professor?.photo || '').trim();
-        if (!raw) return '/photos/team.png';
-        if (raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-        if (raw.startsWith('/')) return encodeURI(raw);
-        return encodeURI(`/${raw.replace(/^\/+/, '')}`);
+        return resolveProfessorPhotoSrc(professor?.photo);
     }, [professor?.photo]);
 
     const openAction = () => {
@@ -3117,7 +3150,7 @@ const ProfessorProfilePage = ({ professor, onEditProfessor, userRole, onSetTarge
                     onError={(e) => {
                         const img = e.target as HTMLImageElement;
                         img.onerror = null;
-                        img.src = '/photos/team.png';
+                        img.src = DEFAULT_PROFESSOR_PHOTO;
                     }}
                 />
                 <div className="profile-info">
@@ -5844,6 +5877,18 @@ export const App = () => {
             Object.keys(fallbackProfs).forEach(key => {
                  if (!currentProfs[key]) {
                      currentProfs[key] = fallbackProfs[key];
+                     return;
+                 }
+
+                 const fallbackPhoto = String(fallbackProfs[key]?.photo || '').trim();
+                 const currentPhoto = String(currentProfs[key]?.photo || '').trim();
+
+                 // If fetched/local data has a generic/broken avatar, recover the curated fallback photo.
+                 if (fallbackPhoto && isGenericProfessorPhoto(currentPhoto)) {
+                     currentProfs[key] = {
+                         ...currentProfs[key],
+                         photo: fallbackPhoto,
+                     };
                  }
             });
             
