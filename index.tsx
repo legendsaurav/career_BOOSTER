@@ -253,6 +253,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
     return (
         <>
             <div
+                className="interview-practice-layout"
                 style={{
                     display: 'flex',
                     flexDirection: 'row',
@@ -271,7 +272,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                 }}
             >
                 {/* Left: Interview Practice Studio */}
-                <div style={{
+                <div className="interview-practice-left" style={{
                     minWidth: 320,
                     maxWidth: 370,
                     width: '34%',
@@ -285,9 +286,10 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     height: '100%',
                 }}>
                     {/* ...existing code for left panel... */}
-                    <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.32rem', color: '#0f172a', fontWeight: 800, letterSpacing: 0.1 }}>Interview Practice Studio</h3>
-                    <p style={{ margin: 0, color: '#475569', fontSize: '1.01rem', fontWeight: 500, marginBottom: 12 }}>Choose how you want to practice, then continue in your dedicated interview website.</p>
+                    <h3 className="interview-practice-title" style={{ margin: '0 0 0.3rem 0', fontSize: '1.32rem', color: '#0f172a', fontWeight: 800, letterSpacing: 0.1 }}>Interview Practice Studio</h3>
+                    <p className="interview-practice-subtitle" style={{ margin: 0, color: '#475569', fontSize: '1.01rem', fontWeight: 500, marginBottom: 12 }}>Choose how you want to practice, then continue in your dedicated interview website.</p>
                     <a
+                        className="interview-practice-link"
                         href="https://interview-analysis-legendsauravs-projects.vercel.app/"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -299,6 +301,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     </a>
                     <div style={{ display: 'flex', gap: '0.6rem', margin: '0.7rem 0 1.1rem 0', flexWrap: 'wrap' }}>
                         <button
+                            className="interview-practice-mode-toggle"
                             onClick={() => setInterviewMode(interviewMode === 'manual' ? 'ai' : 'manual')}
                             style={{ border: '1.5px solid #cbd5e1', padding: '0.55rem 0.9rem', borderRadius: '999px', cursor: 'pointer', background: '#0f172a', color: '#ffffff', fontWeight: 700, fontSize: '1.01rem', boxShadow: '0 2px 8px #6366f122' }}
                         >
@@ -306,9 +309,10 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                         </button>
                     </div>
                     {interviewMode === 'manual' ? (
-                        <div style={{ background: '#f9fafb', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1rem', boxShadow: '0 1px 6px #e2e8f055' }}>
-                            <label style={{ display: 'block', fontWeight: 700, marginBottom: '0.45rem', color: '#0f172a', fontSize: '1.01rem' }}>Interview text / question set</label>
+                        <div className="interview-practice-box" style={{ background: '#f9fafb', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1rem', boxShadow: '0 1px 6px #e2e8f055' }}>
+                            <label className="interview-practice-label" style={{ display: 'block', fontWeight: 700, marginBottom: '0.45rem', color: '#0f172a', fontSize: '1.01rem' }}>Interview text / question set</label>
                             <textarea
+                                className="interview-practice-input"
                                 value={manualInterviewText}
                                 onChange={(e) => setManualInterviewText(e.target.value)}
                                 placeholder="Example: Conduct a frontend interview for React with focus on performance and state management."
@@ -316,16 +320,17 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                 style={{ width: '100%', border: '1.5px solid #cbd5e1', borderRadius: '0.8rem', padding: '0.8rem', resize: 'vertical', fontSize: '0.98rem', background: '#fff' }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.8rem', gap: '0.6rem', flexWrap: 'wrap' }}>
-                                <p style={{ margin: 0, fontSize: '0.89rem', color: '#64748b' }}>This sends your custom text directly to the interview app.</p>
+                                <p className="interview-practice-note" style={{ margin: 0, fontSize: '0.89rem', color: '#64748b' }}>This sends your custom text directly to the interview app.</p>
                             </div>
                         </div>
                     ) : (
-                        <div style={{ background: '#f9fafb', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1rem', boxShadow: '0 1px 6px #e2e8f055' }}>
-                            <p style={{ margin: '0 0 0.8rem 0', color: '#334155', fontSize: '0.98rem' }}>Provide the details below and we will generate an interview practice prompt for you.</p>
+                        <div className="interview-practice-box" style={{ background: '#f9fafb', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1rem', boxShadow: '0 1px 6px #e2e8f055' }}>
+                            <p className="interview-practice-note" style={{ margin: '0 0 0.8rem 0', color: '#334155', fontSize: '0.98rem' }}>Provide the details below and we will generate an interview practice prompt for you.</p>
                             <div style={{ display: 'grid', gap: '0.7rem', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Role</label>
+                                    <label className="interview-practice-label" style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Role</label>
                                     <input
+                                        className="interview-practice-input"
                                         type="text"
                                         value={aiRole}
                                         onChange={(e) => setAiRole(e.target.value)}
@@ -334,8 +339,9 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Position</label>
+                                    <label className="interview-practice-label" style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Position</label>
                                     <input
+                                        className="interview-practice-input"
                                         type="text"
                                         value={aiPosition}
                                         onChange={(e) => setAiPosition(e.target.value)}
@@ -345,8 +351,9 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                 </div>
                             </div>
                             <div style={{ marginTop: '0.7rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Target companies</label>
+                                <label className="interview-practice-label" style={{ display: 'block', fontSize: '0.93rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>Target companies</label>
                                 <input
+                                    className="interview-practice-input"
                                     type="text"
                                     value={aiCompanies}
                                     onChange={(e) => setAiCompanies(e.target.value)}
@@ -354,9 +361,9 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                     style={{ width: '100%', border: '1.5px solid #cbd5e1', borderRadius: '0.7rem', padding: '0.55rem 0.7rem', fontSize: '0.98rem', background: '#fff' }}
                                 />
                             </div>
-                            <div style={{ marginTop: '0.9rem', padding: '0.8rem', border: '1.5px dashed #94a3b8', borderRadius: '0.8rem', background: '#f8fafc' }}>
-                                <div style={{ fontSize: '0.87rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 700 }}>Generated AI interview prompt preview</div>
-                                <div style={{ fontSize: '0.98rem', color: '#0f172a', lineHeight: 1.5 }}>
+                            <div className="interview-practice-preview" style={{ marginTop: '0.9rem', padding: '0.8rem', border: '1.5px dashed #94a3b8', borderRadius: '0.8rem', background: '#f8fafc' }}>
+                                <div className="interview-practice-preview-label" style={{ fontSize: '0.87rem', color: '#475569', marginBottom: '0.35rem', fontWeight: 700 }}>Generated AI interview prompt preview</div>
+                                <div className="interview-practice-preview-text" style={{ fontSize: '0.98rem', color: '#0f172a', lineHeight: 1.5 }}>
                                     {aiGeneratedInterviewPrompt || 'Fill role, position, and companies to generate the prompt.'}
                                 </div>
                             </div>
@@ -365,7 +372,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     )}
                 </div>
                 {/* Right: Interviewer selection grid (aesthetic, large, centered) */}
-                <section style={{
+                <section className="interview-practice-right" style={{
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -374,7 +381,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     padding: '2.5rem 0 0 7vw', // Add left padding to shift rightwards
                     minWidth: 0,
                 }}>
-                    <h2 style={{
+                    <h2 className="interview-practice-heading" style={{
                         fontSize: '2.1rem',
                         fontWeight: 800,
                         color: '#22223b',
@@ -384,7 +391,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                         fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
                         marginLeft: '2vw',
                     }}>Choose the Interviewer</h2>
-                    <div style={{
+                    <div className="interview-practice-grid" style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gap: '2.2rem 2.2rem',
@@ -396,6 +403,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     }}>
                         {INTERVIEWERS.map((iv) => (
                             <button
+                                className={`interviewer-card ${selected?.id === iv.id ? 'selected' : ''}`}
                                 key={iv.id}
                                 type="button"
                                 onClick={() => handleSelect(iv)}
@@ -420,6 +428,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                 }}
                             >
                                 <img
+                                    className="interviewer-card-image"
                                     src={iv.avatar}
                                     alt={iv.name}
                                     draggable={false}
@@ -438,7 +447,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                                         background: '#f3f4f6',
                                     }}
                                 />
-                                <span style={{
+                                <span className="interviewer-card-name" style={{
                                     fontWeight: 700,
                                     color: '#22223b',
                                     fontSize: '1.18rem',
@@ -448,7 +457,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                             </button>
                         ))}
                     </div>
-                    <div style={{
+                    <div className="interview-practice-actions" style={{
                         margin: '2.8rem 0 0 15vw',
                         display: 'flex',
                         flexDirection: 'column',
@@ -458,6 +467,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                         maxWidth: 350,
                     }}>
                         <input
+                            className="interview-name-input"
                             type="text"
                             placeholder="Enter your name"
                             value={userName}
@@ -476,6 +486,7 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                             }}
                         />
                         <button
+                            className={`interview-start-btn ${selected && userName.trim() && !loading ? 'ready' : 'disabled'}`}
                             type="button"
                             onClick={handleStart}
                             disabled={!selected || !userName.trim() || loading}

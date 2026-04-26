@@ -3440,6 +3440,63 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
     background: rgba(16, 26, 41, 0.78);
 }
 
+/* Quizzes > Interviewer panel readability in dark mode */
+:root[data-theme="dark"] .interview-practice-layout {
+    background: linear-gradient(140deg, #0f1a2c 0%, #16263d 100%) !important;
+    border-color: #3c4d66 !important;
+    box-shadow: 0 14px 38px rgba(2, 8, 18, 0.48) !important;
+}
+
+:root[data-theme="dark"] .interview-practice-left {
+    background: rgba(11, 21, 35, 0.92) !important;
+    border-right-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .interview-practice-box,
+:root[data-theme="dark"] .interview-practice-preview {
+    background: #0f1b2e !important;
+    border-color: #3c4d66 !important;
+}
+
+:root[data-theme="dark"] .interview-practice-title,
+:root[data-theme="dark"] .interview-practice-subtitle,
+:root[data-theme="dark"] .interview-practice-label,
+:root[data-theme="dark"] .interview-practice-note,
+:root[data-theme="dark"] .interview-practice-preview-label,
+:root[data-theme="dark"] .interview-practice-preview-text,
+:root[data-theme="dark"] .interview-practice-heading,
+:root[data-theme="dark"] .interviewer-card-name {
+    color: #eaf2ff !important;
+}
+
+:root[data-theme="dark"] .interview-practice-input,
+:root[data-theme="dark"] .interview-name-input {
+    background: #0b1627 !important;
+    color: #f8fafc !important;
+    border-color: #4b607f !important;
+}
+
+:root[data-theme="dark"] .interview-practice-input::placeholder,
+:root[data-theme="dark"] .interview-name-input::placeholder {
+    color: #9bb0cc !important;
+}
+
+:root[data-theme="dark"] .interviewer-card {
+    background: #172840 !important;
+    border-color: #3b4f6d !important;
+    box-shadow: 0 4px 14px rgba(3, 10, 22, 0.45) !important;
+}
+
+:root[data-theme="dark"] .interviewer-card.selected {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.34) !important;
+}
+
+:root[data-theme="dark"] .interviewer-card-image {
+    background: #0f1a2c !important;
+    border-color: #41587a !important;
+}
+
 :root[data-theme="dark"] .flow-circle {
     background: linear-gradient(180deg, rgba(23, 35, 56, 0.98), rgba(18, 29, 46, 0.98));
 }
