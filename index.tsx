@@ -288,17 +288,6 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
                     {/* ...existing code for left panel... */}
                     <h3 className="interview-practice-title" style={{ margin: '0 0 0.3rem 0', fontSize: '1.32rem', color: '#0f172a', fontWeight: 800, letterSpacing: 0.1 }}>Interview Practice Studio</h3>
                     <p className="interview-practice-subtitle" style={{ margin: 0, color: '#475569', fontSize: '1.01rem', fontWeight: 500, marginBottom: 12 }}>Choose how you want to practice, then continue in your dedicated interview website.</p>
-                    <a
-                        className="interview-practice-link"
-                        href="https://interview-analysis-legendsauravs-projects.vercel.app/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            display: 'block', margin: '1.1rem 0 0.7rem 0', padding: '0.6rem 1rem', borderRadius: '0.7rem', textDecoration: 'none', fontWeight: 700, fontSize: '1.01rem', color: '#0b3b2e', background: '#dcfce7', border: '1.5px solid #86efac', textAlign: 'center', boxShadow: '0 2px 8px #bbf7d0cc',
-                        }}
-                    >
-                        Open Interview Website ↗
-                    </a>
                     <div style={{ display: 'flex', gap: '0.6rem', margin: '0.7rem 0 1.1rem 0', flexWrap: 'wrap' }}>
                         <button
                             className="interview-practice-mode-toggle"
