@@ -41,6 +41,13 @@ export interface GuestLoginRow {
   metadata?: any;
 }
 
+export interface GuestTargetLock {
+  targetProfessorId: string;
+  targetProfessorName?: string;
+  branchName?: string;
+  lockedAt?: string;
+}
+
 export const insertGuestLogin = async (row: GuestLoginRow) => {
   if (!supabase) {
     // Supabase client not configured; no-op
@@ -62,4 +69,79 @@ export const insertGuestLogin = async (row: GuestLoginRow) => {
   } catch (err) {
     return { data: null, error: err };
   }
+};
+
+export const getGuestTargetLockByEmail = async (email: string) => {
+  if (!supabase) {
+    return { data: null as GuestTargetLock | null, error: new Error('Supabase not configured') };
+  }
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    return { data: null as GuestTargetLock | null, error: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('guest_logins')
+      .select('metadata, created_at')
+      .eq('email', cleanEmail)
+      .order('created_at', { ascending: false })
+      .limit(80);
+
+    if (error) return { data: null as GuestTargetLock | null, error };
+
+    const rows = Array.isArray(data) ? data : [];
+    for (const row of rows) {
+      const metadata = (row as any)?.metadata || {};
+      const targetProfessorId = String(metadata?.targetProfessorId || '').trim();
+      if (!targetProfessorId) continue;
+
+      return {
+        data: {
+          targetProfessorId,
+          targetProfessorName: String(metadata?.targetProfessorName || '').trim() || undefined,
+          branchName: String(metadata?.branchName || '').trim() || undefined,
+          lockedAt: String(metadata?.lockedAt || (row as any)?.created_at || '').trim() || undefined,
+        },
+        error: null,
+      };
+    }
+
+    return { data: null as GuestTargetLock | null, error: null };
+  } catch (err) {
+    return { data: null as GuestTargetLock | null, error: err };
+  }
+};
+
+export const insertGuestTargetLock = async (row: {
+  name: string;
+  email: string;
+  role?: string | null;
+  photo?: string | null;
+  location?: string | null;
+  targetProfessorId: string;
+  targetProfessorName?: string;
+  branchName?: string;
+}) => {
+  const cleanTargetId = String(row.targetProfessorId || '').trim();
+  if (!cleanTargetId) {
+    return { data: null, error: new Error('Missing target professor id') };
+  }
+
+  return insertGuestLogin({
+    name: row.name,
+    email: row.email,
+    role: row.role || null,
+    photo: row.photo || null,
+    location: row.location || null,
+    metadata: {
+      event: 'target_lock',
+      immutableTarget: true,
+      targetProfessorId: cleanTargetId,
+      targetProfessorName: row.targetProfessorName || '',
+      branchName: row.branchName || '',
+      lockedAt: new Date().toISOString(),
+    },
+  });
 };

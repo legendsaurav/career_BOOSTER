@@ -524,7 +524,7 @@ import ReactDOM from 'react-dom/client';
 import { fetchMockData, updateProfessor, deleteProfessor, deleteDepartment, logout, fetchVisitors, trackVisit, registerPublicUser, getApiBaseUrl } from './api';
 import { apiLogger, LogEntry } from './apilogger';
 import { fallbackData } from './seed-export';
-import { supabase, insertGuestLogin } from './supabaseClient';
+import { supabase, insertGuestLogin, getGuestTargetLockByEmail, insertGuestTargetLock } from './supabaseClient';
 
 // Helper: section-specific Google Custom Search keys (env-first with localStorage fallback)
 const getSectionAliases = (section: string): string[] => {
@@ -827,6 +827,28 @@ const getAiProfessorPhoto = (name: string) => {
     return encodeURI(`/ai department/${filename}`);
 };
 
+const normalizeOfficialProfileUrl = (rawValue: string) => {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return '';
+
+    let candidate = raw;
+    if (!/^https?:\/\//i.test(candidate)) {
+        if (/^www\./i.test(candidate)) {
+            candidate = `https://${candidate}`;
+        } else if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(candidate)) {
+            candidate = `https://${candidate}`;
+        }
+    }
+
+    try {
+        const parsed = new URL(candidate);
+        if (!/^https?:$/i.test(parsed.protocol)) return '';
+        return parsed.toString();
+    } catch {
+        return '';
+    }
+};
+
 const loadAiDepartmentData = async () => {
     try {
         const response = await fetch(AI_DEPARTMENT_CSV_URL);
@@ -859,6 +881,7 @@ const loadAiDepartmentData = async () => {
             const phdFrom = (row['PhD From'] || '').trim();
             const email = (row['Email'] || '').trim();
             const websiteValue = (row['Website'] || '').trim();
+            const officialProfileUrl = normalizeOfficialProfileUrl(websiteValue);
 
             professors[`prof_ai_${index + 1}`] = {
                 id: `prof_ai_${index + 1}`,
@@ -872,9 +895,9 @@ const loadAiDepartmentData = async () => {
                 description: `AI research focus: ${researchArea || 'General artificial intelligence'}.`,
                 photo: getAiProfessorPhoto(cleanName),
                 links: {
-                    webpage: websiteValue.startsWith('http') ? websiteValue : '',
+                    webpage: officialProfileUrl,
                     awards: '',
-                    bio: websiteValue && !websiteValue.startsWith('http') ? websiteValue : ''
+                    bio: websiteValue && !officialProfileUrl ? websiteValue : ''
                 },
                 research: researchArea,
                 projects: [],
@@ -5730,20 +5753,37 @@ export const App = () => {
         }
     }, [isPersonalPanelOpen, apiKey]);
 
-    // Load guest target on login
-    useEffect(() => {
-        // Always lock Mine section until a new target is chosen
-        if (currentUser && userRole === 'public') {
-            setGuestTarget(null);
-            localStorage.removeItem(`guest_target_${currentUser.email}`);
-        } else {
-            setGuestTarget(null);
-        }
-    }, [currentUser, userRole]);
-
-    const handleSetGuestTarget = (profId: string) => {
+    const handleSetGuestTarget = async (profId: string) => {
         touchSession();
         if (userRole === 'public' && currentUser) {
+            let lockedTargetId = String(guestTarget || selectedProfessorId || '').trim();
+
+            try {
+                const remoteLockRes = await getGuestTargetLockByEmail(currentUser.email || '');
+                const remoteTargetId = String(remoteLockRes?.data?.targetProfessorId || '').trim();
+                if (remoteTargetId) {
+                    lockedTargetId = remoteTargetId;
+                    setGuestTarget(remoteTargetId);
+                    setSelectedProfessorId(remoteTargetId);
+                    setHasSetTarget(true);
+                }
+            } catch (e) {
+                // Continue with local fallback if remote read fails.
+            }
+
+            if (lockedTargetId) {
+                if (lockedTargetId !== profId) {
+                    showToast('Your target is already locked and cannot be changed.');
+                    return;
+                }
+
+                setGuestTarget(lockedTargetId);
+                setSelectedProfessorId(lockedTargetId);
+                setHasSetTarget(true);
+                showToast('Your target is already selected and locked.');
+                return;
+            }
+
             setGuestTarget(profId);
             localStorage.setItem(`guest_target_${currentUser.email}`, profId);
 
@@ -5769,11 +5809,26 @@ export const App = () => {
             saveTargetSelectionTokens([tokenEntry, ...existingTokens]);
 
             try {
+                await insertGuestTargetLock({
+                    name: currentUser.name || 'Unknown User',
+                    email: currentUser.email || '',
+                    role: currentUser.role || null,
+                    photo: currentUser.photo || null,
+                    location: currentUser.location || null,
+                    targetProfessorId: profId,
+                    targetProfessorName: targetProfessor?.name || profId,
+                    branchName,
+                });
+            } catch (e) {
+                console.warn('Failed to persist target lock to Supabase', e);
+            }
+
+            try {
                 const ev = new CustomEvent('targetSelectionTokenCreated', { detail: tokenEntry });
                 window.dispatchEvent(ev);
             } catch (e) { /* ignore */ }
 
-            showToast("Target professor set! 'Mine' dashboard unlocked.");
+            showToast("Target professor set permanently. 'Mine' dashboard unlocked.");
         }
         // always set selected professor id so Mine can center on it for admins too
         try { setSelectedProfessorId(profId); } catch (e) {}
@@ -6045,6 +6100,22 @@ export const App = () => {
                 Object.keys(aiData.professors).forEach((key) => {
                     if (!currentAiProfessors[key]) {
                         currentAiProfessors[key] = aiData.professors[key];
+                        return;
+                    }
+
+                    const existingProf = currentAiProfessors[key] as Professor;
+                    const incomingProf = aiData.professors[key] as Professor;
+                    const existingWebpage = String(existingProf?.links?.webpage || '').trim();
+                    const incomingWebpage = String(incomingProf?.links?.webpage || '').trim();
+
+                    if (!existingWebpage && incomingWebpage) {
+                        currentAiProfessors[key] = {
+                            ...existingProf,
+                            links: {
+                                ...(existingProf.links || { awards: '', bio: '', webpage: '' }),
+                                webpage: incomingWebpage,
+                            },
+                        };
                     }
                 });
             }
@@ -6140,11 +6211,28 @@ export const App = () => {
             console.warn('trackVisit failed', e);
         }
 
-        // profile validated inside LoginPage; just set app state
+        let lockedTargetProfessorId: string | null = null;
+        try {
+            const lockRes = await getGuestTargetLockByEmail(profile.email || '');
+            const lockId = String(lockRes?.data?.targetProfessorId || '').trim();
+            if (lockId) lockedTargetProfessorId = lockId;
+        } catch (e) {
+            console.warn('Failed to read target lock on login', e);
+        }
+
+        // profile validated inside LoginPage; set app state
         setUserRole('public');
         setCurrentUser({ name: profile.name, email: profile.email, role: profile.role || 'Student at IIT ROPAR', photo: profile.photo, location: profile.location });
+        setGuestTarget(lockedTargetProfessorId);
+        setSelectedProfessorId(lockedTargetProfessorId);
+        setHasSetTarget(!!lockedTargetProfessorId);
         setLastActivityAt(Date.now());
         setRestoredSession(null);
+
+        if (lockedTargetProfessorId) {
+            showToast('Your previously selected target is locked and restored.');
+        }
+
         return true;
     };
 
