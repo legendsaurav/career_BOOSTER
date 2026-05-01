@@ -1490,11 +1490,9 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
 
 // 3. Status Indicator
 const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | 'offline' }) => {
-    // Always show 'connected' if status is 'offline'
-    const displayStatus = status === 'offline' ? 'connected' : status;
     return (
         <div className={`api-status`} style={{fontSize:'0.8rem', padding:'4px 8px', borderRadius:'12px', background:'#eee'}}>
-            {displayStatus}
+            {status}
         </div>
     );
 };
@@ -5888,7 +5886,7 @@ export const App = () => {
             showToast(`Professor added!`);
             setActiveModal(null);
         } catch (error: any) {
-            setApiStatus('connected');
+            setApiStatus('offline');
             showToast(`Failed to save professor.`);
         }
     }, [data, handleDataUpdate, showToast]);
@@ -5982,7 +5980,7 @@ export const App = () => {
         } catch (err: any) {
             // network/offline fallback: persist locally
             console.warn('Update failed, saving locally', err);
-            setApiStatus('connected');
+            setApiStatus('offline');
             handleDataUpdate(currentData => {
                 let updated = { ...currentData } as AppData;
                 if (isNewBranch) {
@@ -6017,7 +6015,7 @@ export const App = () => {
             }
         } catch (error) {
             console.log('Using local/fallback data due to:', error);
-            setApiStatus('connected');
+            setApiStatus('offline');
             // Try localStorage, else fallback
             const local = loadLocalData();
             loadedData = local || (fallbackData as unknown as AppData);
