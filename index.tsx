@@ -1318,7 +1318,9 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
         } catch {
             // ignore storage errors
         }
-        if (nextTheme !== 'custom') {
+        if (nextTheme === 'custom') {
+            applyColorThemeToDocument('custom', customColor);
+        } else {
             applyColorThemeToDocument(nextTheme);
         }
     };
@@ -5619,11 +5621,17 @@ export const App = () => {
     // Handle color theme change
     const handleColorThemeChange = (val: string) => {
         setColorTheme(val);
-        applyColorTheme(val);
         try {
             localStorage.setItem(COLOR_THEME_STORAGE_KEY, val);
         } catch {
             // ignore storage errors
+        }
+
+        if (val === 'custom') {
+            const stored = getStoredCustomColor();
+            applyColorThemeToDocument(val, stored);
+        } else {
+            applyColorThemeToDocument(val);
         }
     };
 
@@ -5638,9 +5646,13 @@ export const App = () => {
         showToast('Color theme saved!');
     };
 
-    // Apply color theme to document root
+    // Apply color theme to document root (use stored custom color when needed)
     const applyColorTheme = (themeName: string) => {
-        applyColorThemeToDocument(themeName);
+        if (themeName === 'custom') {
+            applyColorThemeToDocument(themeName, getStoredCustomColor());
+        } else {
+            applyColorThemeToDocument(themeName);
+        }
     };
 
     // On mount, apply saved color theme
