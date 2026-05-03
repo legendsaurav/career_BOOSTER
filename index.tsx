@@ -5556,6 +5556,7 @@ export const App = () => {
     // Handle color theme change
     const handleColorThemeChange = (val: string) => {
         setColorTheme(val);
+        localStorage.setItem('colorTheme', val);
         // Optionally, preview color immediately
         applyColorTheme(val);
     };
