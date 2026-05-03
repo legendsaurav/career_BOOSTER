@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 
 const MOTIVATIONAL_QUOTES = [
   "They’re not doing you a favor by interviewing you — you’re evaluating them too.",
@@ -77,6 +77,65 @@ const isGenericProfessorPhoto = (rawValue: unknown) => {
     const raw = String(rawValue || '').trim().toLowerCase();
     if (!raw) return true;
     return raw === '/photos/team.png' || raw.startsWith('/photos/');
+};
+
+const COLOR_THEME_CLASS_NAMES = ['theme-purple', 'theme-blue', 'theme-green', 'theme-red', 'theme-orange'];
+const COLOR_THEME_STORAGE_KEY = 'colorTheme';
+const CUSTOM_COLOR_STORAGE_KEY = 'customColor';
+
+const getStoredColorTheme = () => {
+    try {
+        return localStorage.getItem(COLOR_THEME_STORAGE_KEY) || 'purple';
+    } catch {
+        return 'purple';
+    }
+};
+
+const getStoredCustomColor = () => {
+    try {
+        return localStorage.getItem(CUSTOM_COLOR_STORAGE_KEY) || '#5b21b6';
+    } catch {
+        return '#5b21b6';
+    }
+};
+
+const applyColorThemeToDocument = (themeName: string, customColor?: string) => {
+    if (typeof document === 'undefined') return;
+
+    const roots = [document.documentElement, document.body].filter(Boolean) as HTMLElement[];
+    roots.forEach((root) => {
+        root.classList.remove(...COLOR_THEME_CLASS_NAMES);
+        root.classList.add(`theme-${themeName}`);
+    });
+
+    if (themeName === 'custom' && customColor) {
+        roots.forEach((root) => {
+            root.style.setProperty('--primary-color', customColor);
+            root.style.setProperty('--primary-2', customColor);
+            root.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${customColor} 0%, ${customColor} 100%)`);
+            root.style.setProperty('--background-color', '#f8fafc');
+            root.style.setProperty('--background-accent', 'none');
+            root.style.setProperty('--content-background', '#ffffff');
+            root.style.setProperty('--glass-bg', 'rgba(255,255,255,0.65)');
+            root.style.setProperty('--text-color', '#1e293b');
+            root.style.setProperty('--subtle-text-color', '#64748b');
+            root.style.setProperty('--border-color', '#e2e8f0');
+        });
+        return;
+    }
+
+    roots.forEach((root) => {
+        root.style.removeProperty('--primary-color');
+        root.style.removeProperty('--primary-2');
+        root.style.removeProperty('--primary-gradient');
+        root.style.removeProperty('--background-color');
+        root.style.removeProperty('--background-accent');
+        root.style.removeProperty('--content-background');
+        root.style.removeProperty('--glass-bg');
+        root.style.removeProperty('--text-color');
+        root.style.removeProperty('--subtle-text-color');
+        root.style.removeProperty('--border-color');
+    });
 };
 
 export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme }: { duration?: number; onDone?: () => void; theme?: 'light' | 'dark' }) {
@@ -1234,57 +1293,61 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
     const [guestPassword, setGuestPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'purple');
-    const [customColor, setCustomColor] = useState(() => localStorage.getItem('customColor') || '#5b21b6');
+    const [colorTheme, setColorTheme] = useState(() => getStoredColorTheme());
+    const [customColor, setCustomColor] = useState(() => getStoredCustomColor());
 
     const allowedGuests = ALLOWED_GUESTS;
 
-    useEffect(() => {
-        document.body.classList.remove('theme-purple', 'theme-blue', 'theme-green', 'theme-red', 'theme-orange');
-        document.body.classList.add(`theme-${colorTheme}`);
-        localStorage.setItem('colorTheme', colorTheme);
-        if (colorTheme === 'custom') {
-            // Set all relevant CSS variables for custom color
-            document.documentElement.style.setProperty('--primary-color', customColor);
-            document.documentElement.style.setProperty('--primary-2', customColor);
-            document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${customColor} 0%, ${customColor} 100%)`);
-            document.documentElement.style.setProperty('--background-color', '#f8fafc');
-            document.documentElement.style.setProperty('--background-accent', 'none');
-            document.documentElement.style.setProperty('--content-background', '#ffffff');
-            document.documentElement.style.setProperty('--glass-bg', 'rgba(255,255,255,0.65)');
-            document.documentElement.style.setProperty('--text-color', '#1e293b');
-            document.documentElement.style.setProperty('--subtle-text-color', '#64748b');
-            document.documentElement.style.setProperty('--border-color', '#e2e8f0');
-            localStorage.setItem('customColor', customColor);
-        } else {
-            // Reset to theme color (remove custom overrides)
-            document.documentElement.style.removeProperty('--primary-color');
-            document.documentElement.style.removeProperty('--primary-2');
-            document.documentElement.style.removeProperty('--primary-gradient');
-            document.documentElement.style.removeProperty('--background-color');
-            document.documentElement.style.removeProperty('--background-accent');
-            document.documentElement.style.removeProperty('--content-background');
-            document.documentElement.style.removeProperty('--glass-bg');
-            document.documentElement.style.removeProperty('--text-color');
-            document.documentElement.style.removeProperty('--subtle-text-color');
-            document.documentElement.style.removeProperty('--border-color');
+    useLayoutEffect(() => {
+        applyColorThemeToDocument(colorTheme, colorTheme === 'custom' ? customColor : undefined);
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, colorTheme);
+            if (colorTheme === 'custom') {
+                localStorage.setItem(CUSTOM_COLOR_STORAGE_KEY, customColor);
+            }
+        } catch {
+            // ignore storage errors
         }
     }, [colorTheme, customColor]);
 
     const handleColorThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setColorTheme(e.target.value);
+        const nextTheme = e.target.value;
+        setColorTheme(nextTheme);
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, nextTheme);
+        } catch {
+            // ignore storage errors
+        }
+        if (nextTheme !== 'custom') {
+            applyColorThemeToDocument(nextTheme);
+        }
     };
 
     const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setCustomColor(e.target.value);
+        const nextColor = e.target.value;
+        setCustomColor(nextColor);
         setColorTheme('custom');
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, 'custom');
+            localStorage.setItem(CUSTOM_COLOR_STORAGE_KEY, nextColor);
+        } catch {
+            // ignore storage errors
+        }
+        applyColorThemeToDocument('custom', nextColor);
     };
 
     const handleSetDefaultTheme = (e: React.MouseEvent) => {
         e.preventDefault();
-        localStorage.setItem('colorTheme', colorTheme);
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, colorTheme);
+            if (colorTheme === 'custom') {
+                localStorage.setItem(CUSTOM_COLOR_STORAGE_KEY, customColor);
+            }
+        } catch {
+            // ignore storage errors
+        }
         if (colorTheme === 'custom') {
-            localStorage.setItem('customColor', customColor);
+            applyColorThemeToDocument('custom', customColor);
         }
     };
 
@@ -5551,34 +5614,38 @@ export const App = () => {
         } catch (e) { return 'light'; }
     });
     // Color theme state
-    const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'purple');
+    const [colorTheme, setColorTheme] = useState(() => getStoredColorTheme());
 
     // Handle color theme change
     const handleColorThemeChange = (val: string) => {
         setColorTheme(val);
-        localStorage.setItem('colorTheme', val);
-        // Optionally, preview color immediately
         applyColorTheme(val);
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, val);
+        } catch {
+            // ignore storage errors
+        }
     };
 
     // Save color theme as default
     const saveColorTheme = () => {
-        localStorage.setItem('colorTheme', colorTheme);
+        try {
+            localStorage.setItem(COLOR_THEME_STORAGE_KEY, colorTheme);
+        } catch {
+            // ignore storage errors
+        }
         applyColorTheme(colorTheme);
         showToast('Color theme saved!');
     };
 
     // Apply color theme to document root
     const applyColorTheme = (themeName: string) => {
-        const root = document.documentElement;
-        // Remove all color theme classes
-        root.classList.remove('theme-purple', 'theme-blue', 'theme-green', 'theme-red', 'theme-orange');
-        root.classList.add(`theme-${themeName}`);
+        applyColorThemeToDocument(themeName);
     };
 
     // On mount, apply saved color theme
-    useEffect(() => {
-        const saved = localStorage.getItem('colorTheme') || 'purple';
+    useLayoutEffect(() => {
+        const saved = getStoredColorTheme();
         setColorTheme(saved);
         applyColorTheme(saved);
     }, []);

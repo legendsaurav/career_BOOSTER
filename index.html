@@ -5,6 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Career Booster</title>
   <!-- Removed local CV template logic -->
+  <script>
+    (function () {
+      try {
+        var storage = window.localStorage;
+        var theme = storage.getItem('colorTheme') || 'purple';
+        var customColor = storage.getItem('customColor') || '#5b21b6';
+        var roots = [document.documentElement, document.body];
+        var classes = ['theme-purple', 'theme-blue', 'theme-green', 'theme-red', 'theme-orange'];
+
+        roots.forEach(function (root) {
+          if (!root) return;
+          root.classList.remove.apply(root.classList, classes);
+          root.classList.add('theme-' + theme);
+        });
+
+        if (theme === 'custom') {
+          roots.forEach(function (root) {
+            if (!root) return;
+            root.style.setProperty('--primary-color', customColor);
+            root.style.setProperty('--primary-2', customColor);
+            root.style.setProperty('--primary-gradient', 'linear-gradient(135deg, ' + customColor + ' 0%, ' + customColor + ' 100%)');
+            root.style.setProperty('--background-color', '#f8fafc');
+            root.style.setProperty('--background-accent', 'none');
+            root.style.setProperty('--content-background', '#ffffff');
+            root.style.setProperty('--glass-bg', 'rgba(255,255,255,0.65)');
+            root.style.setProperty('--text-color', '#1e293b');
+            root.style.setProperty('--subtle-text-color', '#64748b');
+            root.style.setProperty('--border-color', '#e2e8f0');
+          });
+        }
+      } catch (e) {
+        // Ignore storage or DOM access issues.
+      }
+    })();
+  </script>
 </head>
 <body>
   <a
