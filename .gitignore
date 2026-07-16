@@ -4,4 +4,5 @@
 !.env.example
 dist/
 node_modules/
-.DS_Store
+public.zip
+public/photos.zip

@@ -145,7 +145,11 @@ export const fallbackData = {
                 "SGS India",
                 "Encardio Rite",
                 "CSIR-SERC",
-                "WSP"
+                "WSP",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji"
             ],
             "lectures": [],
             "websites": [],
@@ -175,7 +179,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "AFCONS Infrastructure",
-                "PORELAB Scientific"
+                "PORELAB Scientific",
+                "L&T Construction",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM",
+                "Jacobs",
+                "WSP"
             ],
             "lectures": [],
             "websites": [],
@@ -206,7 +216,12 @@ export const fallbackData = {
             "companies": [
                 "NIH Roorkee",
                 "Arcadis",
-                "Tata Consulting Engineers"
+                "Tata Consulting Engineers",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM"
             ],
             "lectures": [],
             "websites": [],
@@ -238,7 +253,11 @@ export const fallbackData = {
                 "IIRS ISRO",
                 "NCPOR",
                 "Esri India",
-                "Geoinfra Technologies"
+                "Geoinfra Technologies",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji"
             ],
             "lectures": [],
             "websites": [],
@@ -270,7 +289,11 @@ export const fallbackData = {
                 "Katomaran",
                 "Siemens India",
                 "EFKON India",
-                "Arcadis"
+                "Arcadis",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji"
             ],
             "lectures": [],
             "websites": [],
@@ -300,7 +323,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Hindustan Construction Company",
-                "JW Consultants"
+                "JW Consultants",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM",
+                "Jacobs"
             ],
             "lectures": [],
             "websites": [],
@@ -331,7 +360,12 @@ export const fallbackData = {
             "companies": [
                 "SCS Engineers",
                 "Earth5R",
-                "VA Tech Wabag"
+                "VA Tech Wabag",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM"
             ],
             "lectures": [],
             "websites": [],
@@ -361,7 +395,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "EDSS Ventures",
-                "L&T Construction"
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM",
+                "Jacobs",
+                "WSP"
             ],
             "lectures": [],
             "websites": [],
@@ -391,7 +431,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Optimum Design",
-                "Shapoorji Pallonji Group"
+                "Shapoorji Pallonji Group",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM",
+                "Jacobs"
             ],
             "lectures": [],
             "websites": [],
@@ -422,7 +468,12 @@ export const fallbackData = {
             "companies": [
                 "NIH Roorkee",
                 "SECON Pvt.",
-                "IIC Technologies"
+                "IIC Technologies",
+                "L&T Construction",
+                "AFCONS Infrastructure",
+                "Tata Projects",
+                "Shapoorji Pallonji",
+                "AECOM"
             ],
             "lectures": [],
             "websites": [],
@@ -453,7 +504,12 @@ export const fallbackData = {
             "companies": [
                 "BHEL",
                 "Siemens Energy",
-                "ABB India"
+                "ABB India",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -486,7 +542,12 @@ export const fallbackData = {
             "companies": [
                 "Tata Motors",
                 "Mahindra Electric",
-                "Ather Energy"
+                "Ather Energy",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -518,7 +579,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Power Grid Corporation of India",
-                "QQEC"
+                "QQEC",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -551,7 +618,12 @@ export const fallbackData = {
             "companies": [
                 "Schneider Electric",
                 "SgurrEnergy",
-                "GE Power"
+                "GE Power",
+                "Siemens",
+                "ABB",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -584,7 +656,12 @@ export const fallbackData = {
             "companies": [
                 "Bosch India",
                 "Lucas-TVS",
-                "Rockwell Automation"
+                "Rockwell Automation",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -617,7 +694,12 @@ export const fallbackData = {
             "companies": [
                 "Tata Power",
                 "Enel Green Power",
-                "NTPC"
+                "NTPC",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -650,7 +732,12 @@ export const fallbackData = {
             "companies": [
                 "Adani Green Energy",
                 "ReNew Power",
-                "Suzlon"
+                "Suzlon",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -682,7 +769,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Crompton Greaves",
-                "Bharat Forge"
+                "Bharat Forge",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -714,7 +807,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Texas Instruments",
-                "Analog Devices"
+                "Analog Devices",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Qualcomm",
+                "GE",
+                "Bosch"
             ],
             "lectures": [],
             "websites": [
@@ -747,7 +846,12 @@ export const fallbackData = {
             "companies": [
                 "Intel India",
                 "IBM Research",
-                "NXP Semiconductors"
+                "NXP Semiconductors",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -780,7 +884,12 @@ export const fallbackData = {
             "companies": [
                 "Qualcomm",
                 "Cadence",
-                "HCLTech VLSI"
+                "HCLTech VLSI",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -812,7 +921,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Lam Research",
-                "STMicroelectronics"
+                "STMicroelectronics",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -844,7 +959,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "ISRO",
-                "Astra Microwave Products"
+                "Astra Microwave Products",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -877,7 +998,12 @@ export const fallbackData = {
             "companies": [
                 "Ericsson",
                 "Nokia Bell Labs",
-                "C-DOT"
+                "C-DOT",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -909,7 +1035,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Texas Instruments",
-                "Broadcom"
+                "Broadcom",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Qualcomm",
+                "GE",
+                "Bosch"
             ],
             "lectures": [],
             "websites": [
@@ -941,7 +1073,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "NIOT",
-                "DRDO (NPOL)"
+                "DRDO (NPOL)",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -974,7 +1112,12 @@ export const fallbackData = {
             "companies": [
                 "Microsoft Research India",
                 "Google AI",
-                "Amazon"
+                "Amazon",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -1006,7 +1149,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Samsung R&D",
-                "Jio Platforms"
+                "Jio Platforms",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm",
+                "GE"
             ],
             "lectures": [],
             "websites": [
@@ -1039,7 +1188,12 @@ export const fallbackData = {
             "companies": [
                 "TCS Research",
                 "Wipro AI Labs",
-                "IBM Research"
+                "IBM Research",
+                "Siemens",
+                "ABB",
+                "Schneider Electric",
+                "Texas Instruments",
+                "Qualcomm"
             ],
             "lectures": [],
             "websites": [
@@ -1072,7 +1226,12 @@ export const fallbackData = {
             "companies": [
                 "Fractal Analytics",
                 "SG Analytics",
-                "Mu Sigma"
+                "Mu Sigma",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street"
             ],
             "lectures": [],
             "websites": [
@@ -1104,7 +1263,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "ISI Kolkata",
-                "CMI"
+                "CMI",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1137,7 +1302,12 @@ export const fallbackData = {
             "companies": [
                 "M-Star CFD",
                 "ANSYS India",
-                "FCRI"
+                "FCRI",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street"
             ],
             "lectures": [],
             "websites": [
@@ -1169,7 +1339,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "CSIR-CCMB",
-                "Tata Chemicals R&D"
+                "Tata Chemicals R&D",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1201,7 +1377,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "TCS Research",
-                "Amazon Robotics"
+                "Amazon Robotics",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1233,7 +1415,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "TIFR CAM",
-                "IMSc Chennai"
+                "IMSc Chennai",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1265,7 +1453,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "IISc Mathematics Department",
-                "TIFR"
+                "TIFR",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1297,7 +1491,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Fluid Control Research Institute",
-                "MOS"
+                "MOS",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1329,7 +1529,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "HRI Prayagraj",
-                "CMI"
+                "CMI",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1361,7 +1567,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Ashoka Trust for Research (ATREE)",
-                "NCBS"
+                "NCBS",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1394,7 +1606,12 @@ export const fallbackData = {
             "companies": [
                 "Goldman Sachs",
                 "JPMorgan Chase",
-                "Citi"
+                "Citi",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant",
+                "American Express"
             ],
             "lectures": [],
             "websites": [
@@ -1426,7 +1643,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "ISI",
-                "TIFR CAM"
+                "TIFR CAM",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1458,7 +1681,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "IISER Mohali",
-                "IMSc"
+                "IMSc",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1490,7 +1719,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "HRI Prayagraj",
-                "CMI"
+                "CMI",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1522,7 +1757,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "NIH Roorkee",
-                "NIOT Chennai"
+                "NIOT Chennai",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant"
             ],
             "lectures": [],
             "websites": [
@@ -1553,7 +1794,14 @@ export const fallbackData = {
             "research": "Number Theory, Special Values of L-Functions",
             "projects": [],
             "companies": [
-                "Institute of Mathematical Sciences"
+                "Institute of Mathematical Sciences",
+                "Goldman Sachs",
+                "JPMorgan Chase",
+                "Morgan Stanley",
+                "D. E. Shaw",
+                "Jane Street",
+                "WorldQuant",
+                "American Express"
             ],
             "lectures": [],
             "websites": [
@@ -1586,7 +1834,12 @@ export const fallbackData = {
             "companies": [
                 "Medtronic",
                 "Sastra Robotics",
-                "CSIR-CGCRI"
+                "CSIR-CGCRI",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1619,7 +1872,12 @@ export const fallbackData = {
             "companies": [
                 "Bharat Forge",
                 "TAL Manufacturing",
-                "Wipro 3D"
+                "Wipro 3D",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1651,7 +1909,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Rockman Industries",
-                "Godrej Aerospace"
+                "Godrej Aerospace",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -1684,7 +1948,12 @@ export const fallbackData = {
             "companies": [
                 "GE Aviation",
                 "Siemens",
-                "Blue Star"
+                "Blue Star",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1718,7 +1987,11 @@ export const fallbackData = {
                 "NAL",
                 "DRDO",
                 "Boeing India",
-                "FCRI"
+                "FCRI",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch"
             ],
             "lectures": [],
             "websites": [
@@ -1750,7 +2023,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Stryker",
-                "Johnson & Johnson Medical"
+                "Johnson & Johnson Medical",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -1783,7 +2062,12 @@ export const fallbackData = {
             "companies": [
                 "Pratt & Whitney India",
                 "BHEL",
-                "HAL"
+                "HAL",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1816,7 +2100,12 @@ export const fallbackData = {
             "companies": [
                 "ANSYS India",
                 "Altair Engineering",
-                "COMSOL"
+                "COMSOL",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1849,7 +2138,12 @@ export const fallbackData = {
             "companies": [
                 "FCRI",
                 "M-Star CFD",
-                "Mechanical Outsourcing Solutions"
+                "Mechanical Outsourcing Solutions",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1882,7 +2176,12 @@ export const fallbackData = {
             "companies": [
                 "Reliance New Energy",
                 "L&T Green Energy",
-                "Advait Energy"
+                "Advait Energy",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1915,7 +2214,12 @@ export const fallbackData = {
             "companies": [
                 "Addverb",
                 "Systemantics",
-                "Griffyn Robotech"
+                "Griffyn Robotech",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1948,7 +2252,12 @@ export const fallbackData = {
             "companies": [
                 "CSIR-IMMT",
                 "Tata Steel",
-                "JSW Steel"
+                "JSW Steel",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -1980,7 +2289,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "National Institute of Solar Energy",
-                "Tata Power"
+                "Tata Power",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2012,7 +2327,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Mahindra Advanced Composites",
-                "DRDO"
+                "DRDO",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2045,7 +2366,12 @@ export const fallbackData = {
             "companies": [
                 "Tata Elxsi",
                 "IDEO India",
-                "Capgemini"
+                "Capgemini",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -2078,7 +2404,12 @@ export const fallbackData = {
             "companies": [
                 "SGS India",
                 "ARAI",
-                "CSIR-SERC"
+                "CSIR-SERC",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -2111,7 +2442,12 @@ export const fallbackData = {
             "companies": [
                 "Maruti Suzuki",
                 "Cummins India",
-                "Tata Motors"
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland",
+                "Cummins"
             ],
             "lectures": [],
             "websites": [
@@ -2143,7 +2479,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Wipro 3D",
-                "Intech Additive Solutions"
+                "Intech Additive Solutions",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2176,7 +2518,12 @@ export const fallbackData = {
             "companies": [
                 "HAL",
                 "ADE (DRDO)",
-                "NAL"
+                "NAL",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -2208,7 +2555,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Dassault Systèmes",
-                "MSC Software"
+                "MSC Software",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2241,7 +2594,12 @@ export const fallbackData = {
             "companies": [
                 "MIDHANI",
                 "JSW Steel",
-                "SAIL R&D"
+                "SAIL R&D",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -2273,7 +2631,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "COMSOL Multiphysics India",
-                "Siemens PLM"
+                "Siemens PLM",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2306,7 +2670,12 @@ export const fallbackData = {
             "companies": [
                 "Blue Star",
                 "Voltas",
-                "Carrier India"
+                "Carrier India",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro"
             ],
             "lectures": [],
             "websites": [
@@ -2338,7 +2707,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Mechanical Outsourcing Solutions (MOS)",
-                "FCRI"
+                "FCRI",
+                "Tata Motors",
+                "Mahindra & Mahindra",
+                "Maruti Suzuki",
+                "Bosch",
+                "Larsen & Toubro",
+                "Ashok Leyland"
             ],
             "lectures": [],
             "websites": [
@@ -2371,7 +2746,12 @@ export const fallbackData = {
             "companies": [
                 "CACR Delhi",
                 "Aganitha AI",
-                "Cellworks"
+                "Cellworks",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2402,7 +2782,12 @@ export const fallbackData = {
             "companies": [
                 "Biocon",
                 "Jubilant Biosys",
-                "CSIR-CCMB"
+                "CSIR-CCMB",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2433,7 +2818,12 @@ export const fallbackData = {
             "companies": [
                 "CSIR-NCL",
                 "TIFR",
-                "IISER Pune"
+                "IISER Pune",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2463,7 +2853,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Syngene International",
-                "Dr. Reddy's"
+                "Dr. Reddy's",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals",
+                "Aarti Industries"
             ],
             "lectures": [],
             "websites": [],
@@ -2494,7 +2890,12 @@ export const fallbackData = {
             "companies": [
                 "Cipla (Baddi)",
                 "PI Industries",
-                "SRF Ltd"
+                "SRF Ltd",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2525,7 +2926,12 @@ export const fallbackData = {
             "companies": [
                 "Reliance New Energy",
                 "CSIR-CECRI",
-                "Bloom Energy"
+                "Bloom Energy",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2556,7 +2962,12 @@ export const fallbackData = {
             "companies": [
                 "HPCL R&D",
                 "IOCL R&D",
-                "UPL Ltd"
+                "UPL Ltd",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2586,7 +2997,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Sun Pharma",
-                "Mankind Pharma (Baddi)"
+                "Mankind Pharma (Baddi)",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals",
+                "Aarti Industries"
             ],
             "lectures": [],
             "websites": [],
@@ -2616,7 +3033,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Tata Chemicals",
-                "Pidilite Industries"
+                "Pidilite Industries",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Aarti Industries",
+                "UPL"
             ],
             "lectures": [],
             "websites": [],
@@ -2646,7 +3069,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "TCGLS",
-                "Aurigene Pharmaceutical Services"
+                "Aurigene Pharmaceutical Services",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals",
+                "Aarti Industries"
             ],
             "lectures": [],
             "websites": [],
@@ -2677,7 +3106,12 @@ export const fallbackData = {
             "companies": [
                 "Bharat Biotech",
                 "Serum Institute",
-                "IQVIA"
+                "IQVIA",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals"
             ],
             "lectures": [],
             "websites": [],
@@ -2707,7 +3141,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "CSIR-NCL",
-                "Anthem Biosciences"
+                "Anthem Biosciences",
+                "Reliance Industries",
+                "Indian Oil Corporation",
+                "ONGC",
+                "BPCL",
+                "Tata Chemicals",
+                "Aarti Industries"
             ],
             "lectures": [],
             "websites": [],
@@ -2738,7 +3178,12 @@ export const fallbackData = {
             "companies": [
                 "ICTS Bengaluru",
                 "TIFR",
-                "IMSc Chennai"
+                "IMSc Chennai",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -2770,7 +3215,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Microsoft Research India",
-                "TCS Research"
+                "TCS Research",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA",
+                "Meta"
             ],
             "lectures": [],
             "websites": [
@@ -2803,7 +3254,12 @@ export const fallbackData = {
             "companies": [
                 "VMware",
                 "Nutanix",
-                "IBM Systems"
+                "IBM Systems",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -2835,7 +3291,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Amazon (Computer Vision)",
-                "Adobe Research"
+                "Adobe Research",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA",
+                "Meta"
             ],
             "lectures": [],
             "websites": [
@@ -2868,7 +3330,12 @@ export const fallbackData = {
             "companies": [
                 "Fractal Analytics",
                 "SG Analytics",
-                "Mu Sigma"
+                "Mu Sigma",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -2901,7 +3368,12 @@ export const fallbackData = {
             "companies": [
                 "Quick Heal",
                 "CrowdStrike India",
-                "Cisco"
+                "Cisco",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -2934,7 +3406,12 @@ export const fallbackData = {
             "companies": [
                 "Samsung R&D",
                 "Ericsson",
-                "Jio Platforms"
+                "Jio Platforms",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -2967,7 +3444,12 @@ export const fallbackData = {
             "companies": [
                 "Google AI",
                 "Wipro AI Labs",
-                "IBM Research"
+                "IBM Research",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3001,7 +3483,11 @@ export const fallbackData = {
                 "Intel India",
                 "AMD India",
                 "Xilinx",
-                "HCLTech"
+                "HCLTech",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe"
             ],
             "lectures": [],
             "websites": [
@@ -3034,7 +3520,12 @@ export const fallbackData = {
             "companies": [
                 "Microsoft Azure",
                 "AWS India",
-                "Google Cloud"
+                "Google Cloud",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3067,7 +3558,12 @@ export const fallbackData = {
             "companies": [
                 "Oracle India",
                 "Teradata",
-                "Snowflake"
+                "Snowflake",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3100,7 +3596,12 @@ export const fallbackData = {
             "companies": [
                 "IBM Research India",
                 "Capgemini",
-                "Infosys"
+                "Infosys",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3133,7 +3634,12 @@ export const fallbackData = {
             "companies": [
                 "AI4Bharat",
                 "Amazon Alexa AI",
-                "Flipkart"
+                "Flipkart",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3166,7 +3672,12 @@ export const fallbackData = {
             "companies": [
                 "Google Research",
                 "Goldman Sachs",
-                "JPMC"
+                "JPMC",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3199,7 +3710,12 @@ export const fallbackData = {
             "companies": [
                 "Qualcomm",
                 "Dolby Laboratories",
-                "Harman"
+                "Harman",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3232,7 +3748,12 @@ export const fallbackData = {
             "companies": [
                 "Mentor Graphics",
                 "Synopsys",
-                "Cadence"
+                "Cadence",
+                "Google",
+                "Microsoft",
+                "Amazon",
+                "Adobe",
+                "NVIDIA"
             ],
             "lectures": [],
             "websites": [
@@ -3265,7 +3786,12 @@ export const fallbackData = {
             "companies": [
                 "Korn Ferry",
                 "Aon Hewitt",
-                "Mercer"
+                "Mercer",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY"
             ],
             "lectures": [],
             "websites": [
@@ -3297,7 +3823,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Penguin Random House",
-                "HarperCollins"
+                "HarperCollins",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3330,7 +3862,12 @@ export const fallbackData = {
             "companies": [
                 "NITI Aayog",
                 "ICRIER",
-                "ORF"
+                "ORF",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY"
             ],
             "lectures": [],
             "websites": [
@@ -3362,7 +3899,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Hachette India",
-                "DH India Network"
+                "DH India Network",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3394,7 +3937,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "CIIL Mysuru",
-                "Living Tongues Institute"
+                "Living Tongues Institute",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3426,7 +3975,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Centre for Brain Research (IISc)",
-                "Microsoft UX"
+                "Microsoft UX",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3458,7 +4013,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Rupa Publications",
-                "Scholastic India"
+                "Scholastic India",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3491,7 +4052,12 @@ export const fallbackData = {
             "companies": [
                 "Deloitte HR Consulting",
                 "EY",
-                "Randstad"
+                "Randstad",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3523,7 +4089,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "RIS",
-                "Centre for Policy Research (CPR)"
+                "Centre for Policy Research (CPR)",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3555,7 +4127,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "NCAER",
-                "Institute for Social & Econ Change"
+                "Institute for Social & Econ Change",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3587,7 +4165,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "AI4Bharat (IITM)",
-                "Bhashini (MeitY)"
+                "Bhashini (MeitY)",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG"
             ],
             "lectures": [],
             "websites": [
@@ -3618,7 +4202,14 @@ export const fallbackData = {
             "research": "Philosophy, Ethics",
             "projects": [],
             "companies": [
-                "Digital Humanities Alliance (DHARTI)"
+                "Digital Humanities Alliance (DHARTI)",
+                "Deloitte",
+                "McKinsey & Company",
+                "Nielsen",
+                "Ipsos",
+                "EY",
+                "KPMG",
+                "World Bank"
             ],
             "lectures": [],
             "websites": [
@@ -3651,7 +4242,12 @@ export const fallbackData = {
             "companies": [
                 "INST Mohali",
                 "CeNSE IISc",
-                "JNCASR"
+                "JNCASR",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3684,7 +4280,12 @@ export const fallbackData = {
             "companies": [
                 "ARAI",
                 "Tata Motors R&D",
-                "CSIR-NML"
+                "CSIR-NML",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3717,7 +4318,12 @@ export const fallbackData = {
             "companies": [
                 "Stryker India",
                 "CSIR-CGCRI",
-                "Medtronic"
+                "Medtronic",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3750,7 +4356,12 @@ export const fallbackData = {
             "companies": [
                 "JSW Steel",
                 "MIDHANI",
-                "BARC"
+                "BARC",
+                "Tata Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal",
+                "DRDO"
             ],
             "lectures": [],
             "websites": [
@@ -3782,7 +4393,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "CUMI (Murugappa Group)",
-                "DRDO (DMRL)"
+                "DRDO (DMRL)",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal",
+                "DRDO"
             ],
             "lectures": [],
             "websites": [
@@ -3815,7 +4432,12 @@ export const fallbackData = {
             "companies": [
                 "Tata Steel R&D",
                 "SAIL R&D",
-                "ArcelorMittal"
+                "ArcelorMittal",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "DRDO"
             ],
             "lectures": [],
             "websites": [
@@ -3848,7 +4470,12 @@ export const fallbackData = {
             "companies": [
                 "Wipro 3D",
                 "Intech Additive Solutions",
-                "HAL"
+                "HAL",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3881,7 +4508,12 @@ export const fallbackData = {
             "companies": [
                 "Exide Industries",
                 "Reliance New Energy",
-                "Amara Raja"
+                "Amara Raja",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3914,7 +4546,12 @@ export const fallbackData = {
             "companies": [
                 "CSIR-NML",
                 "Bharat Forge",
-                "Kalyani Steels"
+                "Kalyani Steels",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -3947,7 +4584,12 @@ export const fallbackData = {
             "companies": [
                 "JSW Steel",
                 "Tata Steel",
-                "Jindal Stainless"
+                "Jindal Stainless",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal",
+                "DRDO",
+                "ISRO"
             ],
             "lectures": [],
             "websites": [
@@ -3980,7 +4622,12 @@ export const fallbackData = {
             "companies": [
                 "CSIR-CECRI",
                 "ONGC",
-                "BPCL R&D"
+                "BPCL R&D",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -4013,7 +4660,12 @@ export const fallbackData = {
             "companies": [
                 "L&T Green Energy",
                 "ARCI",
-                "Advait Energy"
+                "Advait Energy",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -4045,7 +4697,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Reliance Industries (Petrochemicals)",
-                "SABIC"
+                "SABIC",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal",
+                "DRDO"
             ],
             "lectures": [],
             "websites": [
@@ -4078,7 +4736,12 @@ export const fallbackData = {
             "companies": [
                 "BHEL",
                 "HAL",
-                "Bharat Dynamics"
+                "Bharat Dynamics",
+                "Tata Steel",
+                "JSW Steel",
+                "Hindalco",
+                "Vedanta",
+                "ArcelorMittal"
             ],
             "lectures": [],
             "websites": [
@@ -4111,7 +4774,12 @@ export const fallbackData = {
             "companies": [
                 "QNu Labs",
                 "QRDLab",
-                "TIFR"
+                "TIFR",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4144,7 +4812,12 @@ export const fallbackData = {
             "companies": [
                 "Sterlite Technologies",
                 "CeNSE IISc",
-                "Tejas Networks"
+                "Tejas Networks",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel"
             ],
             "lectures": [],
             "websites": [
@@ -4177,7 +4850,12 @@ export const fallbackData = {
             "companies": [
                 "QpiAI Tech",
                 "JNCASR",
-                "IQT@IISc"
+                "IQT@IISc",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel"
             ],
             "lectures": [],
             "websites": [
@@ -4210,7 +4888,12 @@ export const fallbackData = {
             "companies": [
                 "BARC",
                 "CAEN India",
-                "NPCIL"
+                "NPCIL",
+                "ISRO",
+                "DRDO",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4242,7 +4925,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "DRDO (LASTEC)",
-                "RRCAT"
+                "RRCAT",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4273,7 +4962,14 @@ export const fallbackData = {
             "research": "Quantum optics, entanglement, optical coherence",
             "projects": [],
             "companies": [
-                "Raman Research Institute (QuIC Lab)"
+                "Raman Research Institute (QuIC Lab)",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials",
+                "Coherent"
             ],
             "lectures": [],
             "websites": [
@@ -4305,7 +5001,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "IISER Mohali",
-                "INST Mohali"
+                "INST Mohali",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4337,7 +5039,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Pristine Diamonds Pvt Ltd",
-                "Qulabs.ai"
+                "Qulabs.ai",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4369,7 +5077,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Institute of Physics (Bhubaneswar)",
-                "HRI"
+                "HRI",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4401,7 +5115,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Harish-Chandra Research Institute",
-                "TIFR"
+                "TIFR",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "Intel",
+                "Applied Materials",
+                "Coherent"
             ],
             "lectures": [],
             "websites": [
@@ -4433,7 +5153,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "QuPrayog Pvt. Ltd",
-                "Quanastra Pvt. Ltd"
+                "Quanastra Pvt. Ltd",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4465,7 +5191,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "Tejas Networks",
-                "ISRO (LEOS)"
+                "ISRO (LEOS)",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "TIFR",
+                "Intel",
+                "Applied Materials"
             ],
             "lectures": [],
             "websites": [
@@ -4497,7 +5229,13 @@ export const fallbackData = {
             "projects": [],
             "companies": [
                 "TIFR",
-                "IISc Physics Department"
+                "IISc Physics Department",
+                "ISRO",
+                "DRDO",
+                "BARC",
+                "Intel",
+                "Applied Materials",
+                "Coherent"
             ],
             "lectures": [],
             "websites": [

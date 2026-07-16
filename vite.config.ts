@@ -5,29 +5,16 @@ import react from '@vitejs/plugin-react'
 // environment without @types/node. This is safe for a dev-only config file.
 declare const process: any;
 
-// https://vitejs.dev/config/
-// The backend port may vary (8787 default in backend/server.js). IMPORTANT:
-// Do NOT read `process.env.PORT` here because Vite sets that to the
-// dev server port (e.g. 5173/5175) and the proxy would then point to
-// the frontend itself (causing self-proxy loops and 5xx errors).
-// Use BACKEND_PORT or BACKEND_URL to explicitly point to the backend.
-const backendPort = process.env.BACKEND_PORT || '8787';
-const backendHost = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
-
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Dev: forward real API calls to the local Career Booster backend so the frontend works
+    // same-origin (no CORS, no baked absolute URL). MUST be '/api/' (trailing slash) so it does
+    // NOT swallow source-module requests like /api.ts or /apilogger.ts (which broke the app).
     proxy: {
-      // Proxy API requests to the backend server. Use '/api/' (with trailing slash)
-      // so we don't accidentally match module paths like '/api`~.ts' during dev.
-      // IMPORTANT: Do not strip the '/api' prefix here because the backend
-      // expects routes under '/api/*' (for example '/api/public-register').
       '/api/': {
-        target: backendHost,
+        target: process.env.BACKEND_URL || `http://localhost:${process.env.BACKEND_PORT || 8787}`,
         changeOrigin: true,
-        // Forward the path as-is so the backend receives the full '/api/...' path.
-        // Avoid rewriting to '/' which would remove the '/api' prefix.
-        // rewrite: (path) => path
       },
     },
   },

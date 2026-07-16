@@ -2025,6 +2025,124 @@ button, a, input, select, textarea { transition: all var(--transition-speed) var
 .chatbot-input-form { display: flex; padding: 1rem; border-top: 1px solid var(--border-color); }
 .chatbot-input-form input { flex: 1; border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 20px; margin-right: 0.5rem; }
 
+/* ===== Site Guide: guided tour + secondary cursor ===== */
+.chatbot-header-actions { display: flex; align-items: center; gap: 8px; }
+.guide-toggle-btn {
+    width: 30px; height: 30px; padding: 0;
+    border-radius: 50%;
+    border: 2px solid #c7d2fe;
+    background: #eef2ff; color: #4f46e5;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; line-height: 1;
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.guide-toggle-btn:hover { transform: scale(1.08); }
+.guide-toggle-btn.on {
+    background: #4f46e5; color: #fff; border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.18);
+}
+.guide-tour-btn {
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid #c7d2fe; background: #eef2ff; color: #4f46e5;
+    font-size: 0.72rem; font-weight: 700; cursor: pointer; line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.guide-tour-btn:hover { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+.voice-toggle-btn, .voice-gender-btn {
+    width: 30px; height: 30px; padding: 0;
+    border-radius: 50%;
+    border: 2px solid #c7d2fe; background: #eef2ff; color: #4f46e5;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; line-height: 1;
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.voice-toggle-btn:hover, .voice-gender-btn:hover { transform: scale(1.08); }
+.voice-toggle-btn.on {
+    background: #4f46e5; color: #fff; border-color: #4f46e5;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.18);
+}
+.voice-gender-btn { font-size: 0.95rem; font-weight: 700; }
+
+/* The secondary cursor (purely visual, never intercepts clicks, always in-viewport) */
+.guide-cursor {
+    position: fixed; left: 0; top: 0;
+    width: 30px; height: 30px;
+    z-index: 2147483000;
+    pointer-events: none;
+    transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+.guide-cursor.follow { transition: transform 0.08s linear; }
+.guide-cursor svg { position: relative; z-index: 2; display: block; }
+.guide-cursor-ring {
+    position: absolute; left: -9px; top: -9px;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid rgba(79, 70, 229, 0.55);
+    background: radial-gradient(circle, rgba(79, 70, 229, 0.18), rgba(79, 70, 229, 0) 70%);
+    z-index: 1;
+}
+.guide-cursor.tour .guide-cursor-ring,
+.guide-cursor.point .guide-cursor-ring { animation: guidePulse 1.3s ease-out infinite; }
+@keyframes guidePulse {
+    0% { transform: scale(0.7); opacity: 0.9; }
+    70% { transform: scale(1.25); opacity: 0.15; }
+    100% { transform: scale(0.7); opacity: 0.9; }
+}
+
+/* Highlight around the section being explained */
+.guide-spotlight {
+    position: fixed; z-index: 2147482000; pointer-events: none;
+    border-radius: 12px;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.9), 0 0 0 9999px rgba(15, 23, 42, 0.45);
+    transition: left 0.35s ease, top 0.35s ease, width 0.35s ease, height 0.35s ease;
+}
+.guide-spotlight.ring-only { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.9); }
+
+/* Explanation card */
+.guide-coachmark {
+    position: fixed; z-index: 2147482500;
+    width: 300px; max-width: 88vw;
+    background: var(--content-background, #fff); color: var(--text-color, #0f172a);
+    border: 1px solid rgba(79, 70, 229, 0.25); border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.35);
+    padding: 14px 16px;
+    animation: guideCardIn 0.25s ease-out;
+}
+@keyframes guideCardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.guide-coachmark-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.guide-step-count {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+    color: #6366f1; background: rgba(99, 102, 241, 0.12);
+    padding: 2px 8px; border-radius: 999px;
+}
+.guide-skip { background: none; border: none; font-size: 1rem; cursor: pointer; color: #94a3b8; line-height: 1; padding: 2px; }
+.guide-skip:hover { color: #475569; }
+.guide-coachmark h4 { margin: 0.15rem 0 0.35rem; font-size: 1.02rem; }
+.guide-coachmark p { margin: 0 0 0.8rem; font-size: 0.9rem; line-height: 1.5; color: var(--text-muted, #475569); }
+.guide-coachmark-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.guide-actions-right { display: flex; gap: 8px; }
+.guide-btn { border: none; border-radius: 9px; padding: 0.5rem 0.95rem; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+.guide-btn.primary { background: var(--primary-color, #4f46e5); color: #fff; }
+.guide-btn.ghost { background: transparent; color: #64748b; border: 1px solid var(--border-color, #e2e8f0); }
+.guide-btn.open { background: rgba(79, 70, 229, 0.12); color: #4f46e5; border: 1px solid rgba(79, 70, 229, 0.35); }
+.guide-btn.open:hover { background: rgba(79, 70, 229, 0.2); }
+.guide-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Clickable "Open" chip that appears when the cursor points at a section */
+.guide-point-label {
+    position: fixed; z-index: 2147482500; pointer-events: auto;
+    background: #4f46e5; color: #fff; font-size: 0.78rem; font-weight: 700;
+    padding: 5px 12px; border-radius: 999px; border: none; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+    animation: guideCardIn 0.2s ease-out;
+    transition: transform 0.12s ease;
+}
+.guide-point-label:hover { transform: scale(1.06); }
+
 /* Login Page (Restored) */
 .login-page-container {
     display: flex; justify-content: center; align-items: center; min-height: 100vh;

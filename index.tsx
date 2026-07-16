@@ -138,8 +138,23 @@ const applyColorThemeToDocument = (themeName: string, customColor?: string) => {
     });
 };
 
-export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme }: { duration?: number; onDone?: () => void; theme?: 'light' | 'dark' }) {
+export function InterviewLoadingScreen({ duration = 15 * 60, onDone, theme, sessionId, onReady }: { duration?: number; onDone?: () => void; theme?: 'light' | 'dark'; sessionId?: string | null; onReady?: () => void }) {
   const [countdown, setCountdown] = useState(duration);
+
+  // When wired to a real INTERVIEWER session, poll its prep status and hand off when ready.
+  useEffect(() => {
+    if (!sessionId) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const st: any = await getInterviewStatus(sessionId);
+        if (!stopped && st && st.status === 'ready') { onReady && onReady(); }
+      } catch (e) { /* keep polling; generation may still be in progress */ }
+    };
+    tick();
+    const iv = setInterval(tick, 2500);
+    return () => { stopped = true; clearInterval(iv); };
+  }, [sessionId]);
   const [quoteIdx, setQuoteIdx] = useState(() => Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length));
   const [usedQuotes, setUsedQuotes] = useState<number[]>([quoteIdx]);
   const [quoteFade, setQuoteFade] = useState(false);
@@ -569,124 +584,51 @@ export function InterviewerSelectorPanel({ onStartInterview = () => {} }: { onSt
     );
 }
 import ReactDOM from 'react-dom/client';
-import { fetchMockData, updateProfessor, deleteProfessor, deleteDepartment, logout, fetchVisitors, trackVisit, registerPublicUser, getApiBaseUrl } from './api';
+import { fetchMockData, updateProfessor, deleteProfessor, deleteDepartment, logout, fetchVisitors, trackVisit, registerPublicUser, getApiBaseUrl, googleCseSearch, perplexityChatCompletions, geminiGenerateText, aiChat, aiRepo, adminLogin, clearAdminToken, startInterviewSession, getInterviewStatus, submitInternshipRequest, uploadResume, getInternshipStatus, aiSearch } from './api';
+import type { AiSource } from './api';
+import { getConversationId } from './conversationId';
+import { SiteGuideOverlay, GuideActions, PointSignal, GuideCommand, detectGuideSection, parseGuideCommand, parseComponentCommand } from './siteGuide';
+import { withFieldCompanies } from './fieldCompanies';
 import { apiLogger, LogEntry } from './apilogger';
 import { fallbackData } from './seed-export';
-import { supabase, insertGuestLogin, getGuestTargetLockByEmail, insertGuestTargetLock } from './supabaseClient';
+import { insertGuestLogin, getGuestTargetLockByEmail, insertGuestTargetLock } from './guestApi';
 
-// Helper: section-specific Google Custom Search keys (env-first with localStorage fallback)
-const getSectionAliases = (section: string): string[] => {
-    const normalized = String(section || '').toUpperCase();
-    if (normalized === 'LINKEDIN') return ['LINKEDIN', 'ALUMNI'];
-    if (normalized === 'GITHUB') return ['GITHUB', 'PROJECTS'];
-    return [normalized];
-};
+// External API keys are NOT handled in the browser.
+// All Google CSE / Perplexity / Gemini calls are proxied via the backend.
 
-const getSectionApiKey = (section: string): string | null => {
-    try {
-        const envAny: any = (import.meta as any).env || {};
-        const aliases = getSectionAliases(section);
-        for (const alias of aliases) {
-            const envKey = envAny[`VITE_GOOGLE_CSE_KEY_${alias}`];
-            if (envKey) return envKey;
-        }
-        for (const alias of aliases) {
-            const stored = localStorage.getItem(`GOOGLE_SEARCH_KEY_${alias}`);
-            if (stored) return stored;
-        }
-        return envAny.VITE_GOOGLE_CSE_KEY || localStorage.getItem('GOOGLE_SEARCH_KEY') || null;
-    } catch (e) { return null; }
-};
+// Per-section Google CSE key/cx lookup used by the in-browser direct-search fallbacks.
+// (These were referenced throughout but never defined, which crashed Alumni/Projects/LinkedIn
+// search.) Prefer the backend proxy (googleCseSearch); these read a localStorage override first,
+// then the Vite build-time env, and return '' if unset.
+// Open a native file picker programmatically (no markup) and resolve with the chosen resume file,
+// or null if cancelled. Used by the internship-request flow.
+function pickResumeFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+        try {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pdf,.doc,.docx,application/pdf,application/msword,image/*';
+            let done = false;
+            const finish = (f: File | null) => { if (!done) { done = true; resolve(f); } };
+            input.onchange = () => finish(input.files && input.files[0] ? input.files[0] : null);
+            // Fallback: if the dialog is cancelled (no change event), resolve null once focus returns.
+            window.addEventListener('focus', () => setTimeout(() => finish(null), 600), { once: true });
+            input.click();
+        } catch (e) { resolve(null); }
+    });
+}
 
-const getSectionCx = (section: string): string | null => {
-    try {
-        const envAny: any = (import.meta as any).env || {};
-        const aliases = getSectionAliases(section);
-        for (const alias of aliases) {
-            const envCx = envAny[`VITE_GOOGLE_CSE_CX_${alias}`];
-            if (envCx) return envCx;
-        }
-        for (const alias of aliases) {
-            const stored = localStorage.getItem(`GOOGLE_SEARCH_CX_${alias}`);
-            if (stored) return stored;
-        }
-        return envAny.VITE_GOOGLE_CSE_CX || localStorage.getItem('GOOGLE_SEARCH_CX') || null;
-    } catch (e) { return null; }
-};
+function getSectionApiKey(section: string): string {
+    try { const ls = localStorage.getItem(`GOOGLE_SEARCH_KEY_${section}`); if (ls && ls.trim()) return ls.trim(); } catch (e) { /* ignore */ }
+    try { const env = (import.meta as any)?.env?.[`VITE_GOOGLE_CSE_KEY_${section}`]; if (env && String(env).trim()) return String(env).trim(); } catch (e) { /* ignore */ }
+    return '';
+}
+function getSectionCx(section: string): string {
+    try { const ls = localStorage.getItem(`GOOGLE_SEARCH_CX_${section}`); if (ls && ls.trim()) return ls.trim(); } catch (e) { /* ignore */ }
+    try { const env = (import.meta as any)?.env?.[`VITE_GOOGLE_CSE_CX_${section}`]; if (env && String(env).trim()) return String(env).trim(); } catch (e) { /* ignore */ }
+    return '';
+}
 
-// NOTE: We intentionally do NOT seed any per-section API keys into localStorage
-// at startup. Keys will only be read/used when the user navigates to the
-// corresponding section and explicitly configures them in the Personal Panel.
-
-// Exception: the ANNOUNCEMENTS section should remain active by default and
-// auto-refresh periodically. Seed a default ANNOUNCEMENTS key/CX if not present.
-try {
-    // --- DEFAULT API KEYS FOR GUEST USERS ---
-    // ALUMNI
-    if (!localStorage.getItem('GOOGLE_SEARCH_KEY_ALUMNI')) {
-        localStorage.setItem('GOOGLE_SEARCH_KEY_ALUMNI', 'AIzaSyC0ivyXvvrqHyPxSYRrlicqp5yWynOLbhY');
-    }
-    if (!localStorage.getItem('GOOGLE_SEARCH_CX_ALUMNI')) {
-        localStorage.setItem('GOOGLE_SEARCH_CX_ALUMNI', '01c6c3ae77c0046b9');
-    }
-    // NEWS
-    if (!localStorage.getItem('GOOGLE_SEARCH_KEY_NEWS')) {
-        localStorage.setItem('GOOGLE_SEARCH_KEY_NEWS', 'AIzaSyCu35lRnlTSMYxNtHFdnVOZ7BBBq-_3nio');
-    }
-    if (!localStorage.getItem('GOOGLE_SEARCH_CX_NEWS')) {
-        localStorage.setItem('GOOGLE_SEARCH_CX_NEWS', '85f2a0e2b4f4541d4');
-    }
-    // PROJECTS
-    if (!localStorage.getItem('GOOGLE_SEARCH_KEY_PROJECTS')) {
-        localStorage.setItem('GOOGLE_SEARCH_KEY_PROJECTS', 'AIzaSyDbFUdkelvwTq4ovghyxcRaaNgsP9Lirh8');
-    }
-    if (!localStorage.getItem('GOOGLE_SEARCH_CX_PROJECTS')) {
-        localStorage.setItem('GOOGLE_SEARCH_CX_PROJECTS', 'c645970c8ba844cea');
-    }
-    // ANNOUNCEMENTS: Use NEWS API key/CX for guest users
-    if (!localStorage.getItem('GOOGLE_SEARCH_KEY_ANNOUNCEMENTS')) {
-        localStorage.setItem('GOOGLE_SEARCH_KEY_ANNOUNCEMENTS', 'AIzaSyCu35lRnlTSMYxNtHFdnVOZ7BBBq-_3nio');
-    }
-    if (!localStorage.getItem('GOOGLE_SEARCH_CX_ANNOUNCEMENTS')) {
-        localStorage.setItem('GOOGLE_SEARCH_CX_ANNOUNCEMENTS', '85f2a0e2b4f4541d4');
-    }
-} catch (e) { /* ignore storage errors */ }
-
-// --- DATA TYPES ---
-
-// Replace/ensure Alumni search key and CX are set to the requested values.
-// This intentionally overwrites any existing Alumni key/CX so the app
-// will use the provided credentials.
-try {
-    const envAny: any = (import.meta as any).env || {};
-    const alKey = envAny.VITE_GOOGLE_CSE_KEY_ALUMNI;
-    const alCx = envAny.VITE_GOOGLE_CSE_CX_ALUMNI;
-    if (alKey) localStorage.setItem('GOOGLE_SEARCH_KEY_ALUMNI', alKey);
-    if (alCx) localStorage.setItem('GOOGLE_SEARCH_CX_ALUMNI', alCx);
-
-    const ggKey = envAny.VITE_GOOGLE_GENAI_KEY;
-    if (ggKey) localStorage.setItem('GOOGLE_GENAI_KEY', ggKey);
-
-    const pplxKey = envAny.VITE_PERPLEXITY_API_KEY;
-    if (pplxKey) localStorage.setItem('PERPLEXITY_API_KEY', pplxKey);
-    const pplxModel = envAny.VITE_PERPLEXITY_MODEL;
-    if (pplxModel) localStorage.setItem('PERPLEXITY_MODEL', pplxModel);
-
-    const prjKey = envAny.VITE_GOOGLE_CSE_KEY_PROJECTS;
-    const prjCx = envAny.VITE_GOOGLE_CSE_CX_PROJECTS;
-    if (prjKey) localStorage.setItem('GOOGLE_SEARCH_KEY_PROJECTS', prjKey);
-    if (prjCx) localStorage.setItem('GOOGLE_SEARCH_CX_PROJECTS', prjCx);
-
-    const ghKey = envAny.VITE_GOOGLE_CSE_KEY_GITHUB;
-    const ghCx = envAny.VITE_GOOGLE_CSE_CX_GITHUB;
-    if (ghKey) localStorage.setItem('GOOGLE_SEARCH_KEY_GITHUB', ghKey);
-    if (ghCx) localStorage.setItem('GOOGLE_SEARCH_CX_GITHUB', ghCx);
-
-    const liKey = envAny.VITE_GOOGLE_CSE_KEY_LINKEDIN;
-    const liCx = envAny.VITE_GOOGLE_CSE_CX_LINKEDIN;
-    if (liKey) localStorage.setItem('GOOGLE_SEARCH_KEY_LINKEDIN', liKey);
-    if (liCx) localStorage.setItem('GOOGLE_SEARCH_CX_LINKEDIN', liCx);
-} catch (e) { /* ignore storage errors */ }
 interface ProfessorLinks {
     awards: string;
     webpage: string;
@@ -1082,10 +1024,59 @@ export const ToastProvider = ({ children }: { children?: React.ReactNode }) => {
 
 const useToast = () => React.useContext(ToastContext);
 
+// --- Text-to-speech (voice for the AI's answers) ------------------------------
+// Uses the browser's built-in Web Speech API — no dependency, works offline. The
+// user can turn it on/off (a dedicated button) and switch male/female voice.
+const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+// Strip markdown/URLs so the spoken text sounds natural; cap length so a long
+// analysis doesn't monologue forever (the user can also stop it any time).
+const stripForSpeech = (text: string) => String(text || '')
+    .replace(/https?:\/\/\S+/g, ' link ')
+    .replace(/[*_`#>|~]/g, ' ')
+    .replace(/^[\s]*[-•]\s*/gm, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 1500);
+
+// Heuristically pick a male/female English voice by name (gender isn't exposed directly).
+const pickTtsVoice = (gender: 'male' | 'female'): SpeechSynthesisVoice | null => {
+    try {
+        const all = window.speechSynthesis.getVoices() || [];
+        const en = all.filter(v => /^en(-|_|$)/i.test(v.lang));
+        const list = en.length ? en : all;
+        const female = /female|zira|samantha|susan|karen|moira|tessa|fiona|aria|jenny|eva|hazel|serena|allison|google uk english female|google us english/i;
+        const male = /\bmale\b|david|mark|daniel|alex|fred|rishi|guy|william|george|oliver|google uk english male/i;
+        const want = gender === 'male' ? male : female;
+        const avoid = gender === 'male' ? female : male;
+        return list.find(v => want.test(v.name))
+            || list.find(v => !avoid.test(v.name))
+            || list[0] || null;
+    } catch { return null; }
+};
+
+const ttsStop = () => { try { if (ttsSupported) window.speechSynthesis.cancel(); } catch { /* ignore */ } };
+
+const ttsSpeak = (text: string, gender: 'male' | 'female') => {
+    if (!ttsSupported) return;
+    try {
+        const synth = window.speechSynthesis;
+        synth.cancel();
+        const clean = stripForSpeech(text);
+        if (!clean) return;
+        const u = new SpeechSynthesisUtterance(clean);
+        const v = pickTtsVoice(gender);
+        if (v) u.voice = v;
+        u.rate = 1;
+        u.pitch = gender === 'male' ? 0.85 : 1.15;
+        synth.speak(u);
+    } catch { /* ignore */ }
+};
+
 // --- COMPONENTS ---
 
 // 1. Chatbot
-const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, apiKey?: string }) => {
+const Chatbot = ({ userRole, apiKey, guideOn, onToggleGuide, onStartTour, onGuideAsk, onGuideCommand }: { userRole?: 'admin' | 'public' | null, apiKey?: string, guideOn?: boolean, onToggleGuide?: () => void, onStartTour?: () => void, onGuideAsk?: (key: string | null, act?: boolean) => void, onGuideCommand?: (cmd: { dept?: string | null; query?: string | null; component?: string | null }) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { role: 'model', text: 'Hello! Ask me about any section of this website (Professor Directory, Departments, Mine/Public, Interview, Certificates, Quizzes, Alumni, Admin tools).' }
@@ -1093,6 +1084,50 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+    // --- Voice (read AI answers aloud) ---
+    const [voiceOn, setVoiceOn] = useState<boolean>(() => { try { return localStorage.getItem('cb_voice_on') === '1'; } catch { return false; } });
+    const [voiceGender, setVoiceGender] = useState<'male' | 'female'>(() => { try { return localStorage.getItem('cb_voice_gender') === 'male' ? 'male' : 'female'; } catch { return 'female'; } });
+    const lastSpokenRef = useRef<number>(-1);
+
+    // Warm up the voice list (populated asynchronously in most browsers).
+    useEffect(() => {
+        if (!ttsSupported) return;
+        try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
+        const onVoices = () => { try { window.speechSynthesis.getVoices(); } catch { /* ignore */ } };
+        window.speechSynthesis.addEventListener?.('voiceschanged', onVoices);
+        return () => { try { window.speechSynthesis.removeEventListener?.('voiceschanged', onVoices); } catch { /* ignore */ } };
+    }, []);
+
+    // Speak each NEW assistant message while voice is on.
+    useEffect(() => {
+        if (!voiceOn) return;
+        const idx = messages.length - 1;
+        if (idx < 0) return;
+        const m = messages[idx];
+        if (m && m.role === 'model' && idx > lastSpokenRef.current) {
+            lastSpokenRef.current = idx;
+            ttsSpeak(m.text, voiceGender);
+        }
+    }, [messages, voiceOn, voiceGender]);
+
+    // Stop speaking when the chat closes or the component unmounts.
+    useEffect(() => { if (!isOpen) ttsStop(); }, [isOpen]);
+    useEffect(() => () => ttsStop(), []);
+
+    const toggleVoice = () => {
+        const next = !voiceOn;
+        try { localStorage.setItem('cb_voice_on', next ? '1' : '0'); } catch { /* ignore */ }
+        if (next) lastSpokenRef.current = messages.length - 1; // don't read the backlog
+        else ttsStop();
+        setVoiceOn(next);
+    };
+    const toggleVoiceGender = () => {
+        const next: 'male' | 'female' = voiceGender === 'female' ? 'male' : 'female';
+        try { localStorage.setItem('cb_voice_gender', next); } catch { /* ignore */ }
+        ttsStop(); // cut off current so the switch is audible on the next line
+        setVoiceGender(next);
+    };
 
     const toggleChat = () => setIsOpen(!isOpen);
 
@@ -1178,6 +1213,71 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
         setInputValue('');
         setIsLoading(true);
 
+        // GitHub repo analysis: if the message carries a repo URL (or clearly asks to
+        // analyse one), route it to the real Kimi repo analyser (/api/ai/repo) instead of
+        // the generic chat — the same accurate, README-grounded pipeline the Hackathons
+        // "Repo Investigator" uses. This is what "analyze this github repo …" should do.
+        const repoUrlMatch = userMessage.text.match(/https?:\/\/(?:www\.)?github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/i);
+        const wantsRepoAnalysis = /\bgithub\b/i.test(userMessage.text)
+            || (/\banaly[sz]e|analysis\b/i.test(userMessage.text) && /\brepo|repository|project\b/i.test(userMessage.text));
+        if (repoUrlMatch) {
+            const url = repoUrlMatch[0].replace(/[).,]+$/, '');
+            setMessages(prev => [...prev, { role: 'model', text: `Analysing ${url} with Kimi — reading the repo’s README and metadata. This can take up to a couple of minutes…` }]);
+            try {
+                const conversationId = getConversationId();
+                const { content } = await aiRepo({ conversationId, url });
+                const text = (content || '').trim();
+                setMessages(prev => [...prev, { role: 'model', text: text || "I couldn't analyse that repository right now. Please try again." }]);
+            } catch (error: any) {
+                console.error('Repo analysis error:', error);
+                setMessages(prev => [...prev, { role: 'model', text: `Sorry, the repo analysis failed (${error?.message || 'please try again'}).` }]);
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+        if (wantsRepoAnalysis) {
+            setMessages(prev => [...prev, { role: 'model', text: 'Sure — paste the GitHub repository link (e.g. https://github.com/owner/name) and I’ll analyse what the project is about. You can also use the Repo Investigator under Profile → Hackathons.' }]);
+            setIsLoading(false);
+            return;
+        }
+
+        // Component instruction ("open certificates", "find python courses",
+        // "search alumni at google", "show internship announcements") → the cursor opens
+        // that feature and runs its search. Works whether or not the cursor was already on.
+        if (onGuideCommand) {
+            const comp = parseComponentCommand(userMessage.text);
+            if (comp) {
+                onGuideCommand({ component: comp.component, query: comp.query });
+                const suffix = comp.query ? ` and searching for “${comp.query}”` : '';
+                setMessages(prev => [...prev, { role: 'model', text: `On it — opening ${comp.label}${suffix}. Watch the guiding pointer. 👉` }]);
+                setIsLoading(false);
+                return;
+            }
+        }
+
+        // Multi-step instruction ("open ai department and search for X") carried out by
+        // the cursor itself — execute it and skip the AI round-trip.
+        if (onGuideCommand) {
+            const cmd = parseGuideCommand(userMessage.text);
+            if (cmd) {
+                onGuideCommand(cmd);
+                const parts: string[] = [];
+                if (cmd.dept) parts.push(`opening the “${cmd.dept}” department`);
+                if (cmd.query) parts.push(`searching for “${cmd.query}”`);
+                setMessages(prev => [...prev, { role: 'model', text: `On it — ${parts.join(' and ')}. Watch the guiding pointer. 👉` }]);
+                setIsLoading(false);
+                return;
+            }
+        }
+
+        // Guide mode: point the secondary cursor at the section the user asked about.
+        // If they phrased it as an action ("open/go to/show me…"), the cursor also clicks it.
+        if (guideOn && onGuideAsk) {
+            const wantsAction = /\b(open|go to|goto|take me|show me|navigate|click|launch|start|find)\b/i.test(userMessage.text);
+            onGuideAsk(detectGuideSection(userMessage.text), wantsAction);
+        }
+
         const siteReply = getSiteSpecificReply(userMessage.text);
         if (siteReply) {
             setMessages(prev => [...prev, { role: 'model', text: siteReply }]);
@@ -1185,36 +1285,14 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
             return;
         }
 
-        // Mock response if no key
-        if (!apiKey) {
-                setTimeout(() => {
-                    setMessages(prev => [...prev, { role: 'model', text: "I can answer website section questions directly. For broader AI career guidance, add an API key in Personal Information." }]);
-                    setIsLoading(false);
-                }, 1000);
-                return;
-        }
-
-        const systemPrompt = 'You are a helpful and friendly career advisor. Your goal is to provide insightful and encouraging advice to users about their careers.';
-        const apiMessages = messagesForApi.map(msg => ({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.text }));
-
+        // AI answer via the Desktop AI Copilot gateway (routes to ChatGPT).
+        // conversationId keeps each user's thread isolated on the gateway; the
+        // gateway maintains history per conversation, so we send only the latest turn.
         try {
-                const response = await fetch('https://api.perplexity.ai/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ model: 'llama-3-sonar-small-32k-online', messages: [{ role: 'system', content: systemPrompt }, ...apiMessages] })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}`);
-            }
-
-            const data = await response.json();
-            const modelResponseText = data.choices?.[0]?.message?.content;
-            if (modelResponseText) setMessages(prev => [...prev, { role: 'model', text: modelResponseText }]);
+            const conversationId = getConversationId();
+            const { content } = await aiChat({ conversationId, message: userMessage.text, mode: 'guide' });
+            const modelResponseText = (content || '').trim();
+            setMessages(prev => [...prev, { role: 'model', text: modelResponseText || "Sorry, I couldn't generate a response right now. Please try again." }]);
         } catch (error) {
             console.error('Chatbot error:', error);
             setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting. Please try again later." }]);
@@ -1253,7 +1331,49 @@ const Chatbot = ({ userRole, apiKey }: { userRole?: 'admin' | 'public' | null, a
                 <div className="chatbot-window">
                     <div className="chatbot-header">
                         <h3>Career Advisor</h3>
-                        <button onClick={() => setIsOpen(false)} className="close-btn" aria-label="Close Chatbot">&times;</button>
+                        <div className="chatbot-header-actions">
+                            {ttsSupported && (
+                                <>
+                                    <button
+                                        className={`voice-toggle-btn ${voiceOn ? 'on' : ''}`}
+                                        onClick={toggleVoice}
+                                        aria-pressed={voiceOn}
+                                        aria-label="Toggle voice"
+                                        title={voiceOn ? 'Turn off voice (stop reading answers)' : 'Read answers aloud'}
+                                    >
+                                        {voiceOn ? '🔊' : '🔇'}
+                                    </button>
+                                    {voiceOn && (
+                                        <button
+                                            className="voice-gender-btn"
+                                            onClick={toggleVoiceGender}
+                                            aria-label="Switch voice gender"
+                                            title={`Voice: ${voiceGender} — click to switch`}
+                                        >
+                                            {voiceGender === 'female' ? '♀' : '♂'}
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <button
+                                className="guide-tour-btn"
+                                onClick={() => onStartTour && onStartTour()}
+                                aria-label="Take the guided tour"
+                                title="Take the full guided tour"
+                            >
+                                Tour
+                            </button>
+                            <button
+                                className={`guide-toggle-btn ${guideOn ? 'on' : ''}`}
+                                onClick={() => onToggleGuide && onToggleGuide()}
+                                aria-pressed={!!guideOn}
+                                aria-label="Toggle guiding cursor"
+                                title={guideOn ? 'Hide the guiding cursor' : 'Show the guiding cursor'}
+                            >
+                                {guideOn ? '■' : '▶'}
+                            </button>
+                            <button onClick={() => setIsOpen(false)} className="close-btn" aria-label="Close Chatbot">&times;</button>
+                        </div>
                     </div>
                     <div className="chatbot-messages">
                         {messages.map((msg, index) => (
@@ -1568,12 +1688,12 @@ const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | '
     return (
     <header className="site-header">
         {/* Left: small profile avatar moved to left as requested */}
-        <button className="header-avatar" onClick={onAvatarClick} aria-label="Open profile" style={{left:'20px'}}>
+        <button className="header-avatar" data-guide="avatar" onClick={onAvatarClick} aria-label="Open profile" style={{left:'20px'}}>
             <img src={avatarSrc} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
         </button>
 
         {/* Center: Branding (logo badge + title) */}
-        <div className="center-branding" role="banner" onClick={onHomeClick} style={{cursor: 'pointer'}}>
+        <div className="center-branding" data-guide="home" role="banner" onClick={onHomeClick} style={{cursor: 'pointer'}}>
                 <span className="logo-badge" aria-hidden>
                 <img src={"/converted_image.png"} alt="" className="logo-img" draggable={false} onDragStart={preventImageDrag} />
             </span>
@@ -1594,7 +1714,7 @@ const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | '
             )}
             <button className="theme-toggle-btn" onClick={onToggleTheme}>{theme === 'dark' ? '🌙' : '☀️'}</button>
             <button className="logout-btn" onClick={onLogout}>Logout</button>
-            <button className="menu-btn" onClick={onMenuClick}>Menu</button>
+            <button className="menu-btn" data-guide="menu" onClick={onMenuClick}>Menu</button>
         </div>
     </header>
     );
@@ -1761,28 +1881,17 @@ const AdminDashboardModal = ({
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [visitors, userMeta]);
 
-    // Use supabase client from supabaseClient.ts
+    // Data explorer now browses the backend datasets (Supabase removed).
 
     const discoverSupabaseTables = useCallback(async () => {
         setDbLoading(true);
         setDbError('');
         try {
-            if (!supabase) {
-                setDbError('Supabase is not configured.');
-                setDbTables([]);
-                return;
-            }
-            // Use supabase client to list tables (via information_schema)
-            const { data, error } = await (supabase as any)
-                .from('information_schema.tables')
-                .select('table_name')
-                .eq('table_schema', 'public');
-            if (error) throw error;
-            const tables = (data || []).map((row: any) => row.table_name).filter(Boolean);
-            setDbTables(tables.length ? tables : ['guest_logins']);
+            const tables = ['professors', 'departments', 'branches', 'visitors'];
+            setDbTables(tables);
             setSelectedTable((prev) => (prev && tables.includes(prev) ? prev : tables[0]));
         } catch (err: any) {
-            setDbError(err?.message || 'Failed to discover Supabase tables.');
+            setDbError(err?.message || 'Failed to list datasets.');
             setDbTables([]);
         } finally {
             setDbLoading(false);
@@ -1790,16 +1899,24 @@ const AdminDashboardModal = ({
     }, []);
 
     const loadSelectedTable = useCallback(async () => {
-        if (!selectedTable || !supabase) return;
+        if (!selectedTable) return;
         setTableLoading(true);
         setDbError('');
         try {
-            const { data: rows, error } = await (supabase as any).from(selectedTable).select('*').limit(100);
-            if (error) throw error;
-            setTableRows(Array.isArray(rows) ? rows : []);
+            let rows: any[] = [];
+            if (selectedTable === 'visitors') {
+                const res: any = await fetchVisitors().catch(() => null);
+                rows = Array.isArray(res) ? res : (res?.visitors || []);
+            } else {
+                const dataset: any = await fetchMockData().catch(() => null);
+                const sec = dataset ? dataset[selectedTable] : null;
+                if (Array.isArray(sec)) rows = sec;
+                else if (sec && typeof sec === 'object') rows = Object.values(sec);
+            }
+            setTableRows(Array.isArray(rows) ? rows.slice(0, 100) : []);
         } catch (err: any) {
             setTableRows([]);
-            setDbError(err?.message || `Failed to load table: ${selectedTable}`);
+            setDbError(err?.message || `Failed to load: ${selectedTable}`);
         } finally {
             setTableLoading(false);
         }
@@ -2080,73 +2197,15 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
     const [hasMore, setHasMore] = useState(false);
     // Choose section key: use NEWS for mode/news, ANNOUNCEMENTS otherwise (preview uses queryTarget to decide)
     const sectionKey = (mode === 'news' || queryTarget === 'news') ? 'NEWS' : 'ANNOUNCEMENTS';
-    const [apiKey, setApiKey] = useState(() => getSectionApiKey(sectionKey) || '');
-    const [cx, setCx] = useState(() => getSectionCx(sectionKey) || '');
-    const [showConfig, setShowConfig] = useState(false);
+    // Keys are stored server-side; the browser never handles them.
 
-    const cache = useRef(new Map<string, JobItem[]>());
+    const cache = useRef(new Map<string, { items: JobItem[]; ts: number }>());
+    const CACHE_TTL_MS = 30 * 60 * 1000; // re-fetch after 30 min so the hourly refresh gets fresh data
 
-    const effectiveMode = mode === 'preview' && queryTarget ? queryTarget : mode;
-
-    // If the effective mode is news, render a static set of authoritative news source links
-    if (effectiveMode === 'news') {
-        const newsSources = [
-            { name: 'Reuters', url: 'https://www.reuters.com' },
-            { name: 'Bloomberg', url: 'https://www.bloomberg.com' },
-            { name: 'CNBC', url: 'https://www.cnbc.com' },
-            { name: 'Wall Street Journal', url: 'https://www.wsj.com' },
-            { name: 'Financial Times', url: 'https://www.ft.com' },
-            { name: 'Business Insider', url: 'https://www.businessinsider.com' },
-            { name: 'Forbes', url: 'https://www.forbes.com' },
-            { name: 'MarketWatch', url: 'https://www.marketwatch.com' },
-            { name: 'Economic Times', url: 'https://economictimes.indiatimes.com' },
-            { name: 'Moneycontrol', url: 'https://www.moneycontrol.com' },
-            { name: 'Mint', url: 'https://www.livemint.com' }
-        ];
-
-        const displayedSources = mode === 'preview' ? newsSources.slice(0, previewCount) : newsSources;
-
-        return (
-            <div className={`job-search-container public-search-news`}>
-                <div className="cert-header-sticky">
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
-                        <h2>Technology News</h2>
-                        <div style={{display:'flex', gap:10, alignItems:'center'}}>
-                            {/* No settings for static links */}
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{padding:'0.5rem 0 1rem'}}>
-                    <p style={{color:'#666'}}>Open trusted news sources for the selected companies. These links open the selected publisher site.</p>
-                </div>
-
-                <div className="job-results-list">
-                    {displayedSources.map((s, idx) => (
-                        <div key={s.url} className="job-card">
-                            <div className="job-card-header">
-                                <div>
-                                    <h3 className="job-title"><a href={s.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none', color:'inherit'}}>{s.name}</a></h3>
-                                    <div className="job-meta"><span className="source-chip">{(new URL(s.url)).hostname.replace('www.','')}</span></div>
-                                </div>
-                            </div>
-                            <p className="job-snippet">Open {s.name} to search for company-specific articles (use the site's search or search engine).</p>
-                            <div className="job-footer">
-                                <a href={s.url} target="_blank" rel="noopener noreferrer" className="view-job-btn">Open ↗</a>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
+    // News now flows through the same dynamic search/render path as announcements: live Google CSE
+    // results shown in the existing job-card markup, so it can auto-refresh hourly (see effect below).
 
     // Helpers
-    const saveConfig = () => {
-        try { localStorage.setItem(`GOOGLE_SEARCH_KEY_${sectionKey}`, apiKey); localStorage.setItem(`GOOGLE_SEARCH_CX_${sectionKey}`, cx); } catch (e) {}
-        setShowConfig(false);
-    };
-
     const normalizeUrl = (raw: string) => {
         try {
             const u = new URL(raw);
@@ -2180,13 +2239,17 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
 
     const buildAnnouncementQueries = (userQuery = '') => {
         const suffix = userQuery ? ` ${userQuery}` : '';
-        const primary = 'site:linkedin.com/posts ( Internship Group Global Early Talent Platform ) ( internship OR challenge OR hiring )';
-        const fallback1 = 'site:linkedin.com/posts ("Internship Group" OR "Global Early Talent Platform" OR "early talent platform") ("internship" OR "challenge" OR "hiring")';
-        const fallback2 = 'site:linkedin.com/posts ("internship" OR "challenge" OR "hiring" OR "early talent")';
+        // Primary is a broad web query so there are enough total results to paginate through
+        // (the old site:linkedin.com/posts-only query returned too few hits to "Load More").
+        const primary = '(internship OR "summer internship" OR "graduate programme" OR "off-campus drive" OR "early talent" OR hiring) (apply OR careers OR 2026)';
+        const fallback1 = 'site:linkedin.com/posts (internship OR "early talent" OR hiring OR challenge)';
+        const fallback2 = 'site:internshala.com (internship OR jobs OR fresher)';
+        const fallback3 = 'site:naukri.com (internship OR "fresher jobs" OR "off campus")';
         return [
             `${primary}${suffix}`.trim(),
             `${fallback1}${suffix}`.trim(),
-            `${fallback2}${suffix}`.trim()
+            `${fallback2}${suffix}`.trim(),
+            `${fallback3}${suffix}`.trim()
         ];
     };
 
@@ -2200,24 +2263,15 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
         return buildAnnouncementQueries(userQuery)[0];
     };
 
-    const fetchWithRetry = async (url: string, retries = 4) => {
+    const callWithRetry = async <T,>(fn: () => Promise<T>, retries = 4): Promise<T> => {
         try {
-            const res = await fetch(url);
-            if (!res.ok) {
-                if ((res.status === 429 || res.status >= 500) && retries > 0) {
-                    const wait = Math.pow(2, 5 - retries) * 500;
-                    await new Promise(r => setTimeout(r, wait));
-                    return fetchWithRetry(url, retries - 1);
-                }
-                const errText = await res.text().catch(() => String(res.status));
-                throw new Error(errText || `HTTP ${res.status}`);
-            }
-            return await res.json();
-        } catch (err) {
-            if (retries > 0) {
+            return await fn();
+        } catch (err: any) {
+            const status = (err && typeof err === 'object') ? (err as any).status : undefined;
+            if ((status === 429 || (typeof status === 'number' && status >= 500)) && retries > 0) {
                 const wait = Math.pow(2, 5 - retries) * 500;
                 await new Promise(r => setTimeout(r, wait));
-                return fetchWithRetry(url, retries - 1);
+                return callWithRetry(fn, retries - 1);
             }
             throw err;
         }
@@ -2225,22 +2279,19 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
 
     const performSearch = async (requestedStart = 1, append = false) => {
         setError('');
-        // prefer state values, but fall back to localStorage for the section-specific keys
-        const effectiveApiKey = apiKey || getSectionApiKey(sectionKey);
-        const effectiveCx = cx || getSectionCx(sectionKey);
-        if (!effectiveApiKey || !effectiveCx) { setShowConfig(true); return; }
-
         const userQuery = query.trim();
         const effectiveMode = mode === 'preview' && queryTarget ? queryTarget : mode;
         const queryVariants = effectiveMode === 'announcements' ? buildAnnouncementQueries(userQuery) : [buildQuery(userQuery)];
-        const dateRestrictParam = effectiveMode === 'announcements' ? '&dateRestrict=w1' : '';
+        // News: last day for freshness; announcements: last month so there are enough to page through.
+        const dateRestrict = effectiveMode === 'news' ? 'd1' : (effectiveMode === 'announcements' ? 'm1' : undefined);
         const primaryQuery = queryVariants[0];
         const cacheKey = `${mode}::${primaryQuery}::${requestedStart}::${pageSize}`;
-        if (cache.current.has(cacheKey)) {
-            const cached = cache.current.get(cacheKey) || [];
+        const cachedEntry = cache.current.get(cacheKey);
+        if (cachedEntry && (Date.now() - cachedEntry.ts) < CACHE_TTL_MS) {
+            const cached = cachedEntry.items || [];
             if (append) setResults(prev => [...prev, ...cached.filter(c => !prev.some(p => p.link === c.link))]);
             else setResults(cached.slice(0, mode === 'preview' ? previewCount : pageSize));
-            setHasMore((cached || []).length >= pageSize);
+            setHasMore(cached.length >= pageSize);
             setStartIndex(requestedStart);
             return;
         }
@@ -2249,8 +2300,7 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
         try {
             let data: any = null;
             for (const q of queryVariants) {
-                const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(effectiveApiKey)}&cx=${encodeURIComponent(effectiveCx)}&q=${encodeURIComponent(q)}&num=${pageSize}&start=${requestedStart}${dateRestrictParam}`;
-                const attempt = await fetchWithRetry(url);
+                const attempt = await callWithRetry(() => googleCseSearch({ section: sectionKey, q, num: pageSize, start: requestedStart, dateRestrict }));
                 if (attempt?.error) throw new Error(attempt.error.message || 'Search error');
                 data = attempt;
                 if ((attempt?.items || []).length > 0) break;
@@ -2284,7 +2334,7 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
                 return (tb - ta) || 0;
             });
 
-            cache.current.set(cacheKey, unique);
+            cache.current.set(cacheKey, { items: unique, ts: Date.now() });
             if (append) {
                 setResults(prev => {
                     const newItems = unique.filter(n => !prev.some(p => p.link === n.link));
@@ -2293,13 +2343,16 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
             } else {
                 setResults(unique.slice(0, mode === 'preview' ? previewCount : pageSize));
             }
-            // determine if more results may be available
+            // determine if more results may be available (use RAW page count, not post-dedup,
+            // so "Load More" stays available even when a page had some duplicates).
+            const rawCount = items.length;
             const total = data?.searchInformation?.totalResults ? parseInt(data.searchInformation.totalResults || '0', 10) : undefined;
+            const withinCseCap = (requestedStart + pageSize) <= 100; // Google CSE hard limit (start<=91)
             if (typeof total === 'number' && !isNaN(total)) {
-                setHasMore((requestedStart - 1) + (unique.length) < total);
+                setHasMore(withinCseCap && ((requestedStart - 1) + rawCount) < total);
             } else {
                 // fallback: if we got a full page, assume more may exist
-                setHasMore(unique.length >= pageSize);
+                setHasMore(withinCseCap && rawCount >= pageSize);
             }
             setStartIndex(requestedStart);
         } catch (err: any) {
@@ -2322,55 +2375,31 @@ const PublicJobSearch = ({ mode = 'preview', previewCount = 2, pageSize = 10, qu
         performSearch(next, true);
     };
 
-    // If this PublicJobSearch instance is for ANNOUNCEMENTS, auto-run and
-    // schedule periodic refresh every 1.5 hours (5400000 ms) when keys are
-    // available. This intentionally activates only the announcements section.
+    // Auto-run an initial fetch for both NEWS and ANNOUNCEMENTS. For the full modal views, refresh
+    // every hour so news/announcements stay up to date; home preview cards fetch once (no timer).
     useEffect(() => {
-        if (sectionKey !== 'ANNOUNCEMENTS') return;
-        const key = getSectionApiKey('ANNOUNCEMENTS');
-        const cxVal = getSectionCx('ANNOUNCEMENTS');
-        if (!key || !cxVal) return;
-
-        // initial fetch
+        // sectionKey is always 'NEWS' or 'ANNOUNCEMENTS'.
         performSearch(1, false).catch(() => {});
-
-        const intervalMs = 1.5 * 60 * 60 * 1000; // 1.5 hours
+        if (mode === 'preview') return;
+        const intervalMs = 60 * 60 * 1000; // 1 hour
         const iv = setInterval(() => {
             performSearch(1, false).catch(() => {});
         }, intervalMs);
         return () => clearInterval(iv);
-    }, [sectionKey]);
+    }, [sectionKey, mode]);
 
     const displayed = results;
 
     return (
         <div className={`job-search-container public-search-${mode}`}>
-            {/* Configuration area (shown if API missing or toggled) */}
-            {showConfig && (
-                <div className="api-config-section">
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
-                        <div style={{display:'flex', gap:8, flex:1}}>
-                            <input placeholder="Google API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} type="password" style={{flex:1}} />
-                            <input placeholder="Search Engine ID (CX)" value={cx} onChange={e => setCx(e.target.value)} style={{width:300}} />
-                        </div>
-                        <div>
-                            <button onClick={saveConfig} className="save-config-btn" style={{width:'auto', padding:'0.5rem 1rem'}}>Save</button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {mode !== 'preview' && (
                 <div className="cert-header-sticky">
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
                         <h2>{mode === 'news' ? 'Technology News' : 'Announcements'}</h2>
-                        <div style={{display:'flex', gap:10, alignItems:'center'}}>
-                            {userRole !== 'public' && (
-                                <button onClick={() => setShowConfig(s => !s)} className="secondary-btn" style={{fontSize:'0.9rem'}}>⚙ Settings</button>
-                            )}
-                        </div>
+                        <div style={{display:'flex', gap:10, alignItems:'center'}}></div>
                     </div>
-                    <form onSubmit={handleSubmit} className="search-row" style={{marginTop: showConfig ? '0.5rem' : '0'}}>
-                        <input className="search-input" placeholder={mode === 'news' ? 'Search tech topics (optional)...' : 'Filter announcements (optional)...'} value={query} onChange={e => setQuery(e.target.value)} />
+                    <form onSubmit={handleSubmit} className="search-row" style={{marginTop: '0'}}>
+                        <input className="search-input" data-guide-search="jobfeed" placeholder={mode === 'news' ? 'Search tech topics (optional)...' : 'Filter announcements (optional)...'} value={query} onChange={e => setQuery(e.target.value)} />
                         <button type="submit" className="add-btn" disabled={loading}>{loading ? 'Searching...' : 'Search'}</button>
                     </form>
                 </div>
@@ -2451,21 +2480,6 @@ const CompanyNewsWidget = ({ defaultCompany }: { defaultCompany?: string }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const getApiConfig = () => {
-        // Allow configuration via a global variable for demo: window.__GOOGLE_CUSTOM_SEARCH = { apiKey, cx }
-        // Fall back to REACT_APP_* globals, and finally to the requested hard-coded defaults.
-        const globalAny = window as any;
-        // Prefer per-section NEWS keys stored in localStorage, then global overrides
-        const newsKey = getSectionApiKey('NEWS');
-        const newsCx = getSectionCx('NEWS');
-        return (
-            globalAny.__GOOGLE_CUSTOM_SEARCH || {
-                apiKey: (globalAny as any).REACT_APP_GOOGLE_CSE_API_KEY || newsKey,
-                cx: (globalAny as any).REACT_APP_GOOGLE_CSE_CX || newsCx
-            }
-        );
-    };
-
     const buildQuery = (companyName: string) => {
         // Keep query broad and Google-News-friendly to avoid zero-result strict filtering.
         const q = `"${companyName}" (announcement OR update OR hiring OR recruitment OR jobs OR partnership OR funding OR investment OR acquisition OR merger)`;
@@ -2476,20 +2490,8 @@ const CompanyNewsWidget = ({ defaultCompany }: { defaultCompany?: string }) => {
         setError(null);
         setLoading(true);
         setResults([]);
-        const cfg = getApiConfig();
-        if (!cfg || !cfg.apiKey || !cfg.cx) {
-            setError('Google Custom Search API key and CX not configured. Set window.__GOOGLE_CUSTOM_SEARCH = { apiKey, cx }');
-            setLoading(false);
-            return;
-        }
-
-        const q = encodeURIComponent(buildQuery(companyName));
-        const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(cfg.apiKey)}&cx=${encodeURIComponent(cfg.cx)}&q=${q}&num=10`;
-
         try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Search API returned ${res.status}`);
-            const data = await res.json();
+            const data = await googleCseSearch({ section: 'NEWS', q: buildQuery(companyName), num: 10, start: 1 });
             const items = (data.items || []).map((it: any) => ({ title: it.title, snippet: it.snippet, link: it.link, publishedAt: it.pagemap?.metatags?.[0]?.['article:published_time'] }));
             setResults(items);
         } catch (err: any) {
@@ -2538,210 +2540,32 @@ const CompanyNewsWidget = ({ defaultCompany }: { defaultCompany?: string }) => {
 };
 
 // HeadlinerSection: fetches news specific to a company (uses NEWS search key)
-const HeadlinerSection = ({ company }: { company?: string }) => {
-    // Instead of using any Google API, produce search links that open in a browser.
-    // The user requested explicit search commands (no API key). We'll compose three search URLs
-    // using the templates provided and show them as links. They open in a new tab.
-    const makeSearchUrl = (companyName: string, body: string) => {
-        const q = `"${companyName}" ${body}`;
-        // Use Google News search (tbm=nws) to surface news results; still uses site: filters.
-        return `https://www.google.com/search?q=${encodeURIComponent(q)}&tbm=nws`;
-    };
-
-    // Simpler commands work better in Google News than deeply nested site/OR logic.
-    const hiringBody = '(hiring OR recruitment OR jobs OR "career opportunities" OR layoffs OR workforce)';
-    const fundingBody = '(funding OR grant OR partnership OR collaboration OR acquisition OR merger OR investment)';
-    const latestBody = '(announcement OR update OR latest OR reports OR launches OR expansion)';
-
-    const links = company ? [
-        { label: 'Hiring / Recruitment', url: makeSearchUrl(company, hiringBody) },
-        { label: 'Funding / M&A', url: makeSearchUrl(company, fundingBody) },
-        { label: 'Latest announcements', url: makeSearchUrl(company, latestBody) }
-    ] : [];
-
-    return (
-        <div style={{padding:'1rem', borderRadius:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', background:'white', minHeight:300}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div>
-                    <h3 style={{margin:0}}>Headliner</h3>
-                    <p style={{margin:0, color:'#666', fontSize:'0.9rem'}}>Quick search links from reputable news sources (opens Google News search)</p>
-                </div>
-                <div style={{color:'#666', fontSize:'0.9rem'}}>{company || '—'}</div>
-            </div>
-
-            <div style={{marginTop:12}}>
-                {!company && <div style={{color:'#666'}}>Select a company to see curated search links.</div>}
-                {company && (
-                    <div style={{display:'grid', gap:12}}>
-                        {links.map((it, idx) => (
-                            <div key={idx} style={{padding:12, borderRadius:8, border:'1px solid #f0f0f0', background:'#fff'}}>
-                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                    <div style={{fontWeight:700}}>{it.label}</div>
-                                    <a href={it.url} target="_blank" rel="noopener noreferrer" className="add-btn" style={{textDecoration:'none'}}>Open Search</a>
-                                </div>
-                                <div style={{fontSize:'0.85rem', color:'#666', marginTop:8}}>{decodeURIComponent(it.url).slice(0, 180)}</div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
+// Headliner: live AI news digest for the selected company (was static Google-News links).
+const HeadlinerSection = ({ company }: { company?: string }) => (
+    <AiAutoSection
+        company={company}
+        title="Company Pulse"
+        subtitle="Live AI news — hiring, funding, launches & announcements, with sources"
+        emptyHint="Select a company to see its latest AI-summarised news."
+        buildQuery={(c) => `Summarise the latest news about ${c} for a student exploring an internship there: hiring/recruitment, funding or partnerships, product launches, and major announcements. Give the most recent, relevant updates as short bullets, each with a source link.`}
+    />
+);
 
 // TCJPSection: targeted company junior/senior profiles search on GitHub and Perplexity Sonar integration
-const TCJPSection = ({ company }: { company?: string }) => {
-    const [results, setResults] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [page, setPage] = useState(0); // page 0..n showing 5 items per page
-    const perPage = 5;
-
-    const fetchProfiles = async (startIndex = 1) => {
-        if (!company) return;
-        setLoading(true); setError(null);
-        try {
-            const key = getSectionApiKey('ALUMNI');
-            const cx = getSectionCx('ALUMNI');
-            if (!key || !cx) {
-                setError('Alumni search key/CX not configured. Open Settings to configure.');
-                setLoading(false);
-                return;
-            }
-            // query targets profiles and senior roles at company on github
-            const rolePhrases = '"principal engineer" OR "principal scientist" OR "chief architect" OR "senior staff engineer" OR "research scientist" OR "senior engineer"';
-            const q = `site:github.com ${company} (${rolePhrases})`;
-            const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=10&start=${startIndex}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('Search failed');
-            const json = await res.json();
-            const items = json.items || [];
-            const parsed = items.map((it: any) => {
-                // attempt to extract github handle from link
-                let handle: string | null = null;
-                try {
-                    const m = it.link.match(/https?:\/\/github.com\/([^\/\?]+)/i);
-                    if (m) handle = m[1];
-                } catch (e) {}
-                return {
-                    title: it.title,
-                    link: it.link,
-                    snippet: it.snippet,
-                    handle
-                };
-            });
-            // For parsed items without handle, attempt a secondary search by name to find GitHub profile
-            const needHandle = parsed.filter(p => !p.handle).slice(0, 5);
-            if (needHandle.length) {
-                // helper: try to find github handle for a given name via CSE
-                const findGithubForName = async (name: string) => {
-                    try {
-                        const key2 = getSectionApiKey('ALUMNI');
-                        const cx2 = getSectionCx('ALUMNI');
-                        const q2 = `site:github.com "${name}"`;
-                        const u2 = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key2)}&cx=${encodeURIComponent(cx2)}&q=${encodeURIComponent(q2)}&num=5`;
-                        const r2 = await fetch(u2);
-                        if (!r2.ok) return null;
-                        const j2 = await r2.json();
-                        const its = j2.items || [];
-                        for (const it of its) {
-                            const m = (it.link || '').match(/https?:\/\/github.com\/([^\/\?]+)/i);
-                            if (m) return m[1];
-                        }
-                    } catch (e) {}
-                    return null;
-                };
-
-                await Promise.all(needHandle.map(async nh => {
-                    // extract a probable person name from title/snippet
-                    let nameGuess = nh.title || nh.snippet || '';
-                    // clean common patterns
-                    nameGuess = nameGuess.replace(/\|/g, ' ').replace(/·/g, ' ').replace(/GitHub/gi, '').replace(/repo/gi, '');
-                    nameGuess = nameGuess.split('-')[0].split('(')[0].trim();
-                    if (!nameGuess) return;
-                    const h = await findGithubForName(nameGuess);
-                    if (h) {
-                        // update the matching parsed entry in results
-                        parsed.forEach(p => { if (!p.handle && (p.title === nh.title || p.link === nh.link)) p.handle = h; });
-                    }
-                }));
-            }
-            // merge unique by link
-            setResults(prev => {
-                const combined = [...prev, ...parsed];
-                const uniq: any[] = [];
-                const seen = new Set<string>();
-                combined.forEach((r:any) => { if (!seen.has(r.link)) { seen.add(r.link); uniq.push(r); } });
-                return uniq;
-            });
-        } catch (e:any) { setError(e.message || 'Failed to fetch profiles'); }
-        finally { setLoading(false); }
-    };
-
-    // Reset results/page when company changes, but DO NOT auto-run the search.
-    // Searches will only run when the user explicitly clicks the Search button.
-    useEffect(() => {
-        setResults([]);
-        setPage(0);
-        setError(null);
-        setLoading(false);
-    }, [company]);
-
-    const displayed = results.slice(page * perPage, (page + 1) * perPage);
-
-    return (
-        <div style={{padding:'1rem', borderRadius:8, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', background:'white', minHeight:300}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div>
-                    <h3 style={{margin:0}}>TCJP</h3>
-                    <p style={{margin:0, color:'#666', fontSize:'0.9rem'}}>Targeted company junior/senior profiles (GitHub)</p>
-                </div>
-                <div style={{display:'flex', gap:8}}>
-                    <button className="secondary-btn" onClick={() => {
-                        const query = `Senior engineers at ${company} site:github.com`;
-                        const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(query)}`;
-                        window.open(url, '_blank');
-                    }}>Perplexity Sonar</button>
-                    <button className="add-btn" onClick={() => fetchProfiles(1)} disabled={!company || loading} title={!company ? 'Select a company first' : 'Search profiles'}>Search Profiles</button>
-                </div>
-            </div>
-
-            <div style={{marginTop:12}}>
-                {loading && <div style={{color:'#666'}}>Searching GitHub profiles…</div>}
-                {error && <div style={{color:'red'}}>{error}</div>}
-                {!loading && results.length === 0 && <div style={{color:'#666'}}>No profiles found yet.</div>}
-                {!loading && displayed.length > 0 && (
-                    <div style={{display:'grid', gap:10}}>
-                        {displayed.map((r, idx) => (
-                            <div key={r.link} style={{padding:10, borderRadius:8, border:'1px solid #f0f0f0'}}>
-                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                    <div style={{fontWeight:600}}>{r.handle ? `@${r.handle}` : r.title}</div>
-                                    <a href={r.link} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.85rem'}}>Open ↗</a>
-                                </div>
-                                <div style={{fontSize:'0.85rem', color:'#666', marginTop:6}}>{r.snippet}</div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:12}}>
-                    <div style={{color:'#666'}}>{results.length} results</div>
-                    <div style={{display:'flex', gap:8}}>
-                        <button className="secondary-btn" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>Prev</button>
-                        <button className="secondary-btn" onClick={async () => {
-                            // if next page items not present, fetch more
-                            const nextPageStart = results.length + 1;
-                            if ((page + 1) * perPage >= results.length) {
-                                await fetchProfiles(nextPageStart);
-                            }
-                            setPage(p => p + 1);
-                        }}>Load More</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+// TCJP: live AI-found people at the company — profile + recent life/career updates (was GitHub CSE).
+const TCJPSection = ({ company }: { company?: string }) => (
+    <AiAutoSection
+        company={company}
+        title="People to know"
+        subtitle="Key people at this company — profile + recent updates, found live by AI"
+        emptyHint="Select a company to discover key people and their recent updates."
+        autoDelayMs={1500}
+        searchPlaceholder="Search a job role — e.g. Data Scientist, Process Engineer…"
+        buildQuery={(c, role) => role
+            ? `List the 5 most essential people at ${c} for someone targeting a "${role}" role there (hiring managers, team leads, senior ${role}s, and recruiters for that area). For EACH person, on its own line, give: the person's name in bold, then their exact role/title, why they matter for a ${role} applicant (what they lead or hire for), one recent career or public update about them, and a link to their LinkedIn or professional profile. Keep each entry to 1-2 lines and format as a bullet.`
+            : `List 5 notable people associated with ${c} (a mix of senior leaders and rising talent). For EACH person, on its own line, give: the person's name in bold, then their role/title, one recent career or public update about them (a promotion, talk, launch, award or move), and a link to their LinkedIn or professional profile. Keep each entry to 1-2 lines and format as a bullet.`}
+    />
+);
 
 // Helper: extract username and repo from a GitHub URL
 const extractGithubInfo = (url: string): { user?: string; repo?: string } => {
@@ -2867,10 +2691,286 @@ const ProjectSearchWidget = ({ defaultQuery }: { defaultQuery?: string }) => {
     );
 };
 
-const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarget, targetProfessorId }: { data: AppData, onOpenPublicModal?: (name: string) => void, onNavigate?: (view: View) => void, userRole?: 'admin' | 'public' | null, hasGuestTarget?: boolean, targetProfessorId?: string | null }) => {
+// ---- MINE: Google Search AI Mode (live, web-grounded internship-prep answers) ----
+// Renders a formatted answer (bold headings, bullets) + clickable source chips.
+const AiAnswerBody = ({ text }: { text: string }) => {
+    // Lightweight formatter: **bold**, bullet lines, and paragraphs. Strips inline source markers
+    // like [](url) (those are surfaced as chips instead).
+    const clean = (text || '').replace(/\[\]\((https?:\/\/[^\s)]+)\)/g, '').replace(/\[(\d+)\]/g, '');
+    const lines = clean.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    const renderInline = (s: string) => {
+        const parts = s.split(/(\*\*[^*]+\*\*)/g);
+        return parts.map((p, i) => p.startsWith('**') && p.endsWith('**')
+            ? <strong key={i} style={{color:'#0f172a'}}>{p.slice(2, -2)}</strong>
+            : <span key={i}>{p}</span>);
+    };
+    return (
+        <div style={{fontSize:'0.94rem', lineHeight:1.6, color:'#334155'}}>
+            {lines.map((ln, i) => {
+                const bullet = /^[-•*]\s+/.test(ln);
+                const heading = /^\*\*[^*]+\*\*$/.test(ln);
+                if (heading) return <div key={i} style={{fontWeight:700, color:'#0f172a', margin:'12px 0 4px'}}>{ln.slice(2, -2)}</div>;
+                if (bullet) return <div key={i} style={{display:'flex', gap:8, margin:'4px 0'}}><span style={{color:'#0ea5a4'}}>•</span><span>{renderInline(ln.replace(/^[-•*]\s+/, ''))}</span></div>;
+                return <p key={i} style={{margin:'6px 0'}}>{renderInline(ln)}</p>;
+            })}
+        </div>
+    );
+};
+
+const AiSourceChips = ({ sources }: { sources: AiSource[] }) => {
+    if (!sources || !sources.length) return null;
+    return (
+        <div style={{marginTop:14, paddingTop:12, borderTop:'1px solid #eef2f6'}}>
+            <div style={{fontSize:'0.72rem', textTransform:'uppercase', letterSpacing:'0.05em', color:'#94a3b8', marginBottom:8, fontWeight:700}}>Sources</div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:8}}>
+                {sources.map((s, i) => (
+                    <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                       style={{display:'inline-flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:16, background:'#f1f5f9', color:'#334155', fontSize:'0.8rem', textDecoration:'none', border:'1px solid #e2e8f0'}}>
+                        <img src={`https://www.google.com/s2/favicons?domain=${s.domain}&sz=32`} alt="" width={14} height={14} style={{borderRadius:3}} onError={(e)=>{(e.target as HTMLImageElement).style.display='none';}} />
+                        <span>{s.domain}</span>
+                    </a>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const AiSearchingLoader = () => {
+    const steps = ['🔎 Searching Google…', '📄 Reading sources…', '✍️ Writing your brief…'];
+    const [step, setStep] = useState(0);
+    useEffect(() => {
+        const iv = setInterval(() => setStep(s => (s + 1) % steps.length), 4000);
+        return () => clearInterval(iv);
+    }, []);
+    return (
+        <div style={{padding:'20px', background:'white', borderRadius:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, color:'#0ea5a4', fontWeight:600, marginBottom:14}}>
+                <span style={{width:16, height:16, border:'2px solid #0ea5a4', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.8s linear infinite'}}></span>
+                {steps[step]}
+            </div>
+            {[90, 70, 82, 60].map((w, i) => (
+                <div key={i} style={{height:10, width:`${w}%`, background:'linear-gradient(90deg,#eef2f6,#f8fafc,#eef2f6)', backgroundSize:'200% 100%', borderRadius:6, margin:'8px 0', animation:'shimmer 1.4s ease-in-out infinite'}}></div>
+            ))}
+            <p style={{color:'#94a3b8', fontSize:'0.8rem', marginTop:12}}>Google's live AI search can take up to a minute — it's reading real sources for you.</p>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+        </div>
+    );
+};
+
+// In-memory cache for AI answers (per company::query), TTL 30 min — re-opening a brief is instant.
+const _aiSearchCache = new Map<string, { answer: string; sources: AiSource[]; ts: number }>();
+const AI_SEARCH_TTL_MS = 30 * 60 * 1000;
+
+// Auto-running AI section: fires a company-scoped Google-Search-AI query when the company changes
+// and renders the grounded answer + source chips. Powers the MINE "News" tab widgets. Reuses the
+// shared answer cache. `autoDelayMs` staggers concurrent sections (the desktop AI drives one browser).
+// Pass `searchPlaceholder` to render a search bar; the submitted term reaches `buildQuery` so the
+// section can re-query scoped to it (e.g. "People to know" filtered by a job role).
+const AiAutoSection = ({ company, title, subtitle, emptyHint, buildQuery, autoDelayMs = 0, searchPlaceholder }: {
+    company?: string;
+    title: string;
+    subtitle: string;
+    emptyHint: string;
+    buildQuery: (company: string, term?: string) => string;
+    autoDelayMs?: number;
+    searchPlaceholder?: string;
+}) => {
+    const [answer, setAnswer] = useState('');
+    const [sources, setSources] = useState<AiSource[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [ts, setTs] = useState<number | null>(null);
+    const [searchInput, setSearchInput] = useState('');
+    const [term, setTerm] = useState(''); // committed search term ('' = default query)
+
+    const run = async (force = false) => {
+        if (!company) { setAnswer(''); setSources([]); setError(''); return; }
+        const query = buildQuery(company, term.trim() || undefined);
+        const key = `${company}::${query}`;
+        const cached = _aiSearchCache.get(key);
+        if (!force && cached && (Date.now() - cached.ts) < AI_SEARCH_TTL_MS) {
+            setAnswer(cached.answer); setSources(cached.sources); setTs(cached.ts); setError('');
+            return;
+        }
+        setLoading(true); setError(''); setAnswer(''); setSources([]);
+        try {
+            const res = await aiSearch({ conversationId: getConversationId(), query, context: { company } });
+            _aiSearchCache.set(key, { answer: res.content || '', sources: res.sources || [], ts: Date.now() });
+            setAnswer(res.content || ''); setSources(res.sources || []); setTs(Date.now());
+        } catch (e: any) {
+            setError('The AI service is not reachable right now. Please retry in a moment.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const t = setTimeout(() => { run(); }, autoDelayMs); // auto-run (staggered) on company/term change
+        return () => clearTimeout(t);
+    }, [company, term]);
+
+    const fresh = ts ? Math.max(0, Math.round((Date.now() - ts) / 60000)) : null;
+    return (
+        <div style={{padding:'1rem', borderRadius:12, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', background:'white', minHeight:300}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
+                <div>
+                    <h3 style={{margin:0}}>{title}</h3>
+                    <p style={{margin:'2px 0 0', color:'#64748b', fontSize:'0.85rem'}}>{subtitle}</p>
+                </div>
+                <div style={{textAlign:'right', minWidth:60}}>
+                    <div style={{color:'#0ea5a4', fontSize:'0.85rem', fontWeight:600}}>{company || '—'}</div>
+                    {answer && !loading && <button onClick={() => run(true)} style={{background:'none', border:'none', color:'#0ea5a4', cursor:'pointer', fontSize:'0.75rem', fontWeight:600}}>↻ refresh</button>}
+                </div>
+            </div>
+            {searchPlaceholder && company && (
+                <div style={{marginBottom:12}}>
+                    <form onSubmit={(e) => { e.preventDefault(); setTerm(searchInput); }} style={{display:'flex', gap:6}}>
+                        <input
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
+                            placeholder={searchPlaceholder}
+                            disabled={loading}
+                            style={{flex:1, padding:'8px 12px', border:'1px solid #e2e8f0', borderRadius:10, fontSize:'0.85rem', minWidth:0}}
+                        />
+                        <button type="submit" disabled={loading || !searchInput.trim()}
+                                style={{padding:'8px 12px', borderRadius:10, border:'1px solid #0ea5a4', background:'#0ea5a4', color:'white', fontWeight:600, fontSize:'0.85rem', cursor:'pointer', opacity: loading || !searchInput.trim() ? 0.6 : 1}}>
+                            🔍
+                        </button>
+                    </form>
+                    {term.trim() && (
+                        <div style={{marginTop:8, display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:16, background:'#f0fdfa', border:'1px solid #ccfbf1', fontSize:'0.78rem', color:'#0f766e', fontWeight:600}}>
+                            Role: {term.trim()}
+                            <span role="button" aria-label="Clear role filter" onClick={() => { setTerm(''); setSearchInput(''); }}
+                                  style={{cursor:'pointer', fontWeight:700, color:'#0ea5a4'}}>×</span>
+                        </div>
+                    )}
+                </div>
+            )}
+            {!company && <div style={{color:'#94a3b8', textAlign:'center', padding:'2.5rem 0'}}>{emptyHint}</div>}
+            {company && loading && <AiSearchingLoader />}
+            {company && error && !loading && (
+                <div style={{padding:14, background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, color:'#b91c1c'}}>
+                    {error} <button onClick={() => run(true)} style={{marginLeft:6, textDecoration:'underline', background:'none', border:'none', color:'#b91c1c', cursor:'pointer'}}>Retry</button>
+                </div>
+            )}
+            {company && answer && !loading && (
+                <div>
+                    {fresh !== null && <div style={{fontSize:'0.72rem', color:'#94a3b8', marginBottom:8}}>updated {fresh === 0 ? 'just now' : `${fresh}m ago`}</div>}
+                    <AiAnswerBody text={answer} />
+                    <AiSourceChips sources={sources} />
+                </div>
+            )}
+        </div>
+    );
+};
+
+const MinePrepBrief = ({ company, professorName, branchName }: { company?: string; professorName?: string; branchName?: string }) => {
+    const [query, setQuery] = useState('');
+    const [answer, setAnswer] = useState('');
+    const [sources, setSources] = useState<AiSource[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [answeredAt, setAnsweredAt] = useState<number | null>(null);
+    const [answeredLabel, setAnsweredLabel] = useState('');
+
+    const runSearch = useCallback(async (q: string, force = false) => {
+        const question = (q || '').trim();
+        if (!question) return;
+        setError('');
+        const cacheKey = `${company || ''}::${question}`;
+        const cached = _aiSearchCache.get(cacheKey);
+        if (!force && cached && (Date.now() - cached.ts) < AI_SEARCH_TTL_MS) {
+            setAnswer(cached.answer); setSources(cached.sources); setAnsweredAt(cached.ts); setAnsweredLabel(question);
+            return;
+        }
+        setLoading(true); setAnswer(''); setSources([]);
+        try {
+            const res = await aiSearch({
+                conversationId: getConversationId(),
+                query: question,
+                context: { professorName, branchName, company },
+            });
+            const a = res.content || '';
+            const s = res.sources || [];
+            _aiSearchCache.set(cacheKey, { answer: a, sources: s, ts: Date.now() });
+            setAnswer(a); setSources(s); setAnsweredAt(Date.now()); setAnsweredLabel(question);
+        } catch (e: any) {
+            setError(e?.message?.includes('502') || e?.message?.includes('gateway')
+                ? 'The AI search service is not reachable right now. Please try again in a moment.'
+                : (e?.message || 'AI search failed. Please try again.'));
+        } finally {
+            setLoading(false);
+        }
+    }, [company, professorName, branchName]);
+
+    const prepBrief = () => runSearch(`Give me an internship prep brief for ${company || 'this company'}: what they do, recent work, the skills they hire for, and current internship openings.`);
+    const followUps = [
+        { label: 'Openings now', q: `What internship openings are currently available at ${company || 'this company'}?` },
+        { label: 'Skills I\'m missing', q: `What key skills should I build to intern at ${company || 'this company'} in ${branchName || 'my field'}?` },
+        { label: 'Interview questions', q: `What are likely interview questions for an internship at ${company || 'this company'}?` },
+        { label: 'Recent news', q: `What is the latest news about ${company || 'this company'} relevant to an intern?` },
+    ];
+    const freshness = answeredAt ? Math.max(0, Math.round((Date.now() - answeredAt) / 60000)) : null;
+
+    return (
+        <div className="mine-ai-panel">
+            <div style={{background:'linear-gradient(135deg,#f0fdfa,#ffffff)', border:'1px solid #ccfbf1', borderRadius:14, padding:16, marginBottom:14}}>
+                <div style={{fontWeight:700, color:'#0f172a', fontSize:'1.05rem'}}>AI Prep — powered by live Google Search</div>
+                <p style={{color:'#64748b', fontSize:'0.88rem', margin:'4px 0 12px'}}>
+                    Personalized to your internship{professorName ? ` with ${professorName}` : ''}{branchName ? ` (${branchName})` : ''}{company ? `, focused on ${company}` : ''}.
+                </p>
+                <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                    <button className="add-btn" onClick={prepBrief} disabled={loading} style={{borderRadius:10}}>✨ Prep brief for {company || 'company'}</button>
+                    <form onSubmit={(e)=>{e.preventDefault(); runSearch(query);}} style={{display:'flex', gap:8, flex:1, minWidth:220}}>
+                        <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ask anything about your internship prep…"
+                               style={{flex:1, padding:'9px 12px', border:'1px solid #e2e8f0', borderRadius:10, fontSize:'0.9rem'}} disabled={loading} />
+                        <button type="submit" className="pill-btn" disabled={loading} style={{padding:'9px 14px', borderRadius:10, border:'1px solid #0ea5a4', background:'#0ea5a4', color:'white', fontWeight:600}}>Ask</button>
+                    </form>
+                </div>
+            </div>
+
+            {loading && <AiSearchingLoader />}
+            {error && !loading && (
+                <div style={{padding:16, background:'#fef2f2', border:'1px solid #fecaca', borderRadius:12, color:'#b91c1c'}}>
+                    {error} <button onClick={()=>runSearch(answeredLabel || query, true)} style={{marginLeft:8, textDecoration:'underline', background:'none', border:'none', color:'#b91c1c', cursor:'pointer'}}>Retry</button>
+                </div>
+            )}
+            {answer && !loading && (
+                <div style={{padding:18, background:'white', borderRadius:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                        <span style={{fontSize:'0.78rem', color:'#94a3b8'}}>{answeredLabel}</span>
+                        {freshness !== null && (
+                            <span style={{fontSize:'0.75rem', color:'#94a3b8'}}>
+                                updated {freshness === 0 ? 'just now' : `${freshness}m ago`} · <button onClick={()=>runSearch(answeredLabel, true)} style={{background:'none', border:'none', color:'#0ea5a4', cursor:'pointer', fontWeight:600}}>↻ refresh</button>
+                            </span>
+                        )}
+                    </div>
+                    <AiAnswerBody text={answer} />
+                    <AiSourceChips sources={sources} />
+                    <div style={{marginTop:16, display:'flex', flexWrap:'wrap', gap:8}}>
+                        {followUps.map(f => (
+                            <button key={f.label} onClick={()=>{ setQuery(''); runSearch(f.q); }} disabled={loading}
+                                    style={{padding:'6px 12px', borderRadius:16, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#0ea5a4', fontSize:'0.82rem', fontWeight:600, cursor:'pointer'}}>
+                                {f.label} ↗
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {!answer && !loading && !error && (
+                <div style={{textAlign:'center', padding:'2.5rem 1rem', color:'#94a3b8'}}>
+                    <div style={{fontSize:'2rem', marginBottom:8}}>🎯</div>
+                    <p>Tap <b>“Prep brief”</b> for a personalized, source-backed guide to interning at {company || 'your target company'}.</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarget, targetProfessorId, internshipStage = 'none' }: { data: AppData, onOpenPublicModal?: (name: string) => void, onNavigate?: (view: View) => void, userRole?: 'admin' | 'public' | null, hasGuestTarget?: boolean, targetProfessorId?: string | null, internshipStage?: 'none' | 'submitted' | 'under_review' | 'accepted' | 'declined' }) => {
     // Replaced useLiveNews with PublicJobSearch for Public tab
     const [homeTab, setHomeTab] = useState<'PUBLIC' | 'MINE'>('PUBLIC');
-    const [mineSubTab, setMineSubTab] = useState<'news' | 'projects'>('news');
+    const [mineSubTab, setMineSubTab] = useState<'news' | 'projects' | 'ai'>('ai');
     const [selectedCompany, setSelectedCompany] = useState<string | undefined>(undefined);
     const [customMineCompanies, setCustomMineCompanies] = useState<string[]>([]);
     const [customCompanyInput, setCustomCompanyInput] = useState('');
@@ -2923,6 +3023,14 @@ const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarge
         return Array.from(new Set(merged)).slice(0, 60);
     }, [baseMineCompanies, customMineCompanies, normalizeCompany]);
 
+    // Target professor + branch names, used to scope the AI Prep search.
+    const targetProfInfo = useMemo(() => {
+        if (!(userRole === 'public' && targetProfessorId)) return { name: '', branch: '' };
+        const prof: any = Object.values(data.professors).find((p: any) => p.id === targetProfessorId || p._id === targetProfessorId);
+        const branchName = (prof?.branch && data.branches?.[prof.branch]?.name) || prof?.branch || '';
+        return { name: prof?.name || '', branch: branchName };
+    }, [data, userRole, targetProfessorId]);
+
     // Add/remove custom company for this user/professor
     const addCustomMineCompany = useCallback(() => {
         const company = normalizeCompany(customCompanyInput);
@@ -2965,7 +3073,7 @@ const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarge
 
     return (
         <div className="homepage-container">
-            <div className="homepage-tabs">
+            <div className="homepage-tabs" data-guide="home-tabs">
                 <button className={`home-tab ${homeTab === 'PUBLIC' ? 'active' : ''}`} onClick={() => setHomeTab('PUBLIC')}>PUBLIC</button>
                 <button className={`home-tab ${homeTab === 'MINE' ? 'active' : ''}`} onClick={() => setHomeTab('MINE')}>MINE</button>
             </div>
@@ -3005,28 +3113,52 @@ const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarge
                 </div>
             ) : (
                 <div className="mine-dashboard-wrapper">
-                    {userRole === 'public' && !hasGuestTarget ? (
-                        <div style={{textAlign:'center', padding:'3rem', color:'#666'}}>
-                            <div style={{fontSize:'2.5rem', marginBottom:'1rem'}}>🔒</div>
-                            <h3>Dashboard Locked</h3>
-                            <p style={{maxWidth:'400px', margin:'0 auto'}}>To unlock your personalized dashboard, please select a professor from the directory.</p>
-                            <button
-                                className="add-btn"
-                                style={{marginTop:'1.5rem', fontSize:'1.1rem', padding:'0.8rem 2.2rem'}}
-                                onClick={() => {
-                                    if (onNavigate) {
-                                        onNavigate({ view: 'professor_directory' });
-                                    }
-                                }}
-                            >
-                                Go to Professor Directory
-                            </button>
+                    {userRole === 'public' && internshipStage !== 'accepted' ? (
+                        <div style={{textAlign:'center', padding:'3rem', color:'#666', maxWidth:520, margin:'0 auto'}}>
+                            {(() => {
+                                // MINE unlocks only after the professor accepts the internship.
+                                // Show a clear, friendly message for whichever stage the student is at.
+                                if (!hasGuestTarget || internshipStage === 'none') {
+                                    return (<>
+                                        <div style={{fontSize:'2.5rem', marginBottom:'1rem'}}>🔒</div>
+                                        <h3>Your dashboard is locked</h3>
+                                        <p>Pick a professor you'd like to intern with and send a request. Once the professor <b>accepts</b> you, this personalized dashboard unlocks automatically.</p>
+                                        <button className="add-btn" style={{marginTop:'1.5rem', fontSize:'1.05rem', padding:'0.8rem 2.2rem'}} onClick={() => onNavigate && onNavigate({ view: 'professor_directory' })}>
+                                            Browse Professors
+                                        </button>
+                                    </>);
+                                }
+                                if (internshipStage === 'declined') {
+                                    return (<>
+                                        <div style={{fontSize:'2.5rem', marginBottom:'1rem'}}>💬</div>
+                                        <h3>This request wasn't accepted</h3>
+                                        <p>Unfortunately the professor couldn't take on this internship right now. Don't be discouraged — you can request a different professor and try again.</p>
+                                        <button className="add-btn" style={{marginTop:'1.5rem', fontSize:'1.05rem', padding:'0.8rem 2.2rem'}} onClick={() => onNavigate && onNavigate({ view: 'professor_directory' })}>
+                                            Choose another Professor
+                                        </button>
+                                    </>);
+                                }
+                                // submitted or under_review -> pending
+                                const reviewing = internshipStage === 'under_review';
+                                return (<>
+                                    <div style={{fontSize:'2.5rem', marginBottom:'1rem'}}>⏳</div>
+                                    <h3>{reviewing ? 'Your request is with the professor' : 'Request submitted'}</h3>
+                                    <p>{reviewing
+                                        ? 'Your request and resume were forwarded to the professor. Your dashboard will unlock the moment they accept you — this page checks automatically.'
+                                        : 'Your internship request is being reviewed. Once it is approved and the professor accepts you, your dashboard unlocks here automatically.'}</p>
+                                    <div style={{marginTop:'1.5rem', display:'inline-flex', gap:8, alignItems:'center', color:'#0ea5a4', fontWeight:600}}>
+                                        <span style={{width:10, height:10, borderRadius:'50%', background:'#0ea5a4', display:'inline-block'}}></span>
+                                        {reviewing ? 'Awaiting professor decision' : 'Awaiting approval'}
+                                    </div>
+                                </>);
+                            })()}
                         </div>
                     ) : (
                         <>
                             {/* Sub-tabs: News | Projects */}
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
                                 <div style={{display:'flex', gap:8}}>
+                                    <button className={`subtab ${mineSubTab === 'ai' ? 'active' : ''}`} onClick={() => setMineSubTab('ai')}>✨ AI Prep</button>
                                     <button className={`subtab ${mineSubTab === 'news' ? 'active' : ''}`} onClick={() => setMineSubTab('news')}>News</button>
                                     <button className={`subtab ${mineSubTab === 'projects' ? 'active' : ''}`} onClick={() => setMineSubTab('projects')}>Projects</button>
                                 </div>
@@ -3090,7 +3222,9 @@ const HomePage = ({ data, onOpenPublicModal, onNavigate, userRole, hasGuestTarge
                             </div>
 
                             {/* Render content for selected subtab */}
-                            {mineSubTab === 'news' ? (
+                            {mineSubTab === 'ai' ? (
+                                <MinePrepBrief company={selectedCompany} professorName={targetProfInfo.name} branchName={targetProfInfo.branch} />
+                            ) : mineSubTab === 'news' ? (
                                 <div className="mine-grid-center" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:16}}>
                                     <HeadlinerSection company={selectedCompany} />
                                     <TCJPSection company={selectedCompany} />
@@ -4277,11 +4411,12 @@ const CertificatesModal = ({ onClose, onStartInterview }: { onClose: () => void;
                         <button className="close-btn" onClick={onClose} style={{fontSize:'1.5rem'}}>&times;</button>
                     </div>
                     <div className="cert-controls">
-                        <input 
-                            type="text" 
-                            placeholder="Search certificates..." 
-                            value={filter} 
-                            onChange={e => setFilter(e.target.value)} 
+                        <input
+                            type="text"
+                            data-guide-search="certificates"
+                            placeholder="Search certificates..."
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
                             className="cert-search-bar"
                         />
                         <select value={category} onChange={e => setCategory(e.target.value)} className="cert-cat-select">
@@ -4406,11 +4541,7 @@ const AlumniNetworkingModal = ({ onClose, userRole }: { onClose: () => void, use
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
-        if (!apiKey || !cx) {
-            alert("Please configure Google API Key and Search Engine ID (CX) first.");
-            setShowConfig(true);
-            return;
-        }
+        // No manual key needed: the backend proxy holds the ALUMNI Google CSE credentials.
 
         setLoading(true);
         // Construct the query: site:linkedin.com/in ("IIT Ropar" OR "Indian Institute of Technology Ropar") {company}
@@ -4418,9 +4549,8 @@ const AlumniNetworkingModal = ({ onClose, userRole }: { onClose: () => void, use
         const finalQuery = `site:linkedin.com/in ${institution} "${query.trim()}"`;
 
         try {
-            const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(finalQuery)}&num=10`;
-            const res = await fetch(url);
-            const data = await res.json();
+            const data: any = await googleCseSearch({ section: 'ALUMNI', q: finalQuery, num: 10, start: 1 });
+            if (data && data.error) throw new Error(data.error.message || 'Search failed');
 
             if (data.items) {
                 const processed = data.items.map((item: any) => ({
@@ -4435,8 +4565,8 @@ const AlumniNetworkingModal = ({ onClose, userRole }: { onClose: () => void, use
                 setResults([]);
             }
         } catch (error) {
-            console.error("Search failed", error);
-            alert("Search failed. Check your API Key/CX or quota.");
+            console.error("Alumni search failed", error);
+            alert("Alumni search failed. The ALUMNI Google CSE keys may not be configured on the backend, or the quota is exhausted.");
         } finally {
             setLoading(false);
         }
@@ -4465,11 +4595,12 @@ const AlumniNetworkingModal = ({ onClose, userRole }: { onClose: () => void, use
                     )}
 
                     <form onSubmit={handleSearch} className="alumni-search-container">
-                        <input 
-                            type="text" 
-                            placeholder="Enter Company Name (e.g. Google, Microsoft)..." 
-                            value={query} 
-                            onChange={e => setQuery(e.target.value)} 
+                        <input
+                            type="text"
+                            data-guide-search="alumni"
+                            placeholder="Enter Company Name (e.g. Google, Microsoft)..."
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
                             className="cert-search-bar"
                         />
                         <button type="submit" className="add-btn" disabled={loading}>
@@ -5141,16 +5272,9 @@ const QuizzesModal = ({ onClose, userRole, onStartInterview }: { onClose: () => 
 // -----------------------------
 const RepoInvestigator = () => {
     const [url, setUrl] = useState('');
-    const [apiKeyInput, setApiKeyInput] = useState('');
-    const [savedKey, setSavedKey] = useState<string | null>(() => {
-        try { return localStorage.getItem('GOOGLE_GENAI_KEY') || null; } catch { return null; }
-    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [result, setResult] = useState<string | null>(null);
-
-    const saveKey = () => { try { localStorage.setItem('GOOGLE_GENAI_KEY', apiKeyInput); setSavedKey(apiKeyInput); setApiKeyInput(''); } catch(e){} };
-    const clearKey = () => { try { localStorage.removeItem('GOOGLE_GENAI_KEY'); setSavedKey(null); } catch(e){} };
 
     const isValidGithubUrl = (v: string) => {
         try {
@@ -5162,44 +5286,15 @@ const RepoInvestigator = () => {
     const runAnalysis = async () => {
         setError('');
         setResult(null);
-        const key = savedKey || apiKeyInput || localStorage.getItem('GOOGLE_GENAI_KEY');
-        if (!key) { setError('GenAI API key not configured. Paste your Google GenAI key in the field and Save.'); return; }
         if (!isValidGithubUrl(url)) { setError('Please enter a valid GitHub repository URL (e.g. https://github.com/org/repo).'); return; }
 
         setLoading(true);
         try {
-            const prompt = `You are Repo Investigator. Given a GitHub repository URL: ${url}\n\nProduce two sections exactly: \n1) Execution Guide 🛠️: Provide step-by-step shell commands to run the project locally. Make commands copy-paste ready.\n2) Project Highlights ✨: Concise technical bullet points summarizing what's unique or impressive about the project.\n\nReturn output formatted like a README.md with headings and code blocks where appropriate.`;
-
-            const endpoint = 'https://generativelanguage.googleapis.com/v1beta2/models/gemini-2.5-flash:generateText';
-
-            const res = await fetch(`${endpoint}?key=${encodeURIComponent(key)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: prompt,
-                    temperature: 0.05,
-                    maxOutputTokens: 800,
-                })
-            });
-
-            if (!res.ok) {
-                const txt = await res.text().catch(() => '');
-                throw new Error(`GenAI request failed: ${res.status} ${txt}`);
-            }
-            const json = await res.json();
-            let textOut = '';
-            if (json?.candidates && Array.isArray(json.candidates) && json.candidates[0]?.content) {
-                textOut = json.candidates[0].content;
-            } else if (json?.output?.[0]?.content?.text) {
-                textOut = json.output[0].content.text;
-            } else if (typeof json?.text === 'string') {
-                textOut = json.text;
-            } else if (json?.choices && json.choices[0]?.message?.content) {
-                textOut = json.choices[0].message.content;
-            } else {
-                textOut = JSON.stringify(json, null, 2);
-            }
-
+            // Analysed by the Desktop AI Copilot gateway (routes to Kimi). No client key needed.
+            const conversationId = getConversationId();
+            const { content } = await aiRepo({ conversationId, url: url.trim() });
+            const textOut = (content || '').trim();
+            if (!textOut) throw new Error('The analyser returned an empty response. Please try again.');
             setResult(textOut);
         } catch (e: any) {
             console.error('Repo analysis error', e);
@@ -5216,11 +5311,6 @@ const RepoInvestigator = () => {
                     <div className="repo-input-row">
                         <input className="repo-url-input" placeholder="https://github.com/org/repo" value={url} onChange={e=>setUrl(e.target.value)} />
                         <button className="btn-solid" onClick={runAnalysis} disabled={loading}>{loading ? 'Analyzing…' : 'Analyze'}</button>
-                    </div>
-                    <div className="repo-api-keys">
-                        <input placeholder="Google GenAI API Key (optional)" value={apiKeyInput} onChange={e=>setApiKeyInput(e.target.value)} />
-                        <button className="btn-ghost" onClick={saveKey} disabled={!apiKeyInput}>Save</button>
-                        <button className="btn-ghost" onClick={clearKey} disabled={!savedKey}>Clear</button>
                     </div>
                 </div>
             </div>
@@ -5276,28 +5366,14 @@ const HackathonsModal = ({ onClose }: { onClose: () => void }) => {
     const runRepoAnalysis = async () => {
         setAiError('');
         setAiResult(null);
-        const key = (typeof localStorage !== 'undefined') ? (localStorage.getItem('PERPLEXITY_API_KEY') || '') : '';
-        if (!key) { setAiError('AI key missing. Add PERPLEXITY_API_KEY in Personal Panel.'); return; }
         if (!isValidGithubUrl(aiUrl)) { setAiError('Enter a valid GitHub repository URL (e.g., https://github.com/org/repo).'); return; }
         setAiLoading(true);
         try {
-            const systemPrompt = 'You are Repo Investigator. Return concise, technical, README-style output.';
-            const userPrompt = `Analyze this GitHub repository: ${aiUrl}\n\nReturn two sections exactly:\n1) Execution Guide 🛠️: Step-by-step shell commands to run locally (copy-paste ready).\n2) Project Highlights ✨: Bullet points of unique or technically impressive aspects.\n\nUse clear headings and fenced code blocks where appropriate.`;
-            const res = await fetch('https://api.perplexity.ai/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({
-                    model: (typeof localStorage !== 'undefined' && localStorage.getItem('PERPLEXITY_MODEL')) || 'sonar-pro',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt }
-                    ],
-                    temperature: 0.2,
-                })
-            });
-            if (!res.ok) { const txt = await res.text().catch(()=> ''); throw new Error(`Perplexity failed: ${res.status} ${txt}`); }
-            const json = await res.json();
-            const out = json?.choices?.[0]?.message?.content || JSON.stringify(json, null, 2);
+            // Analysed by Kimi AI through the Desktop AI Copilot gateway. No client key needed.
+            const conversationId = getConversationId();
+            const { content } = await aiRepo({ conversationId, url: aiUrl.trim() });
+            const out = (content || '').trim();
+            if (!out) throw new Error('The analyser returned an empty response. Please try again.');
             setAiResult(out);
         } catch (e:any) { setAiError(String(e?.message || e)); } finally { setAiLoading(false); }
     };
@@ -5339,7 +5415,7 @@ const HackathonsModal = ({ onClose }: { onClose: () => void }) => {
                                 <input value={aiUrl} onChange={e=>setAiUrl(e.target.value)} placeholder="Paste GitHub repo URL (https://github.com/org/repo)" style={{flex:1, padding:'10px 14px', borderRadius:999, border:'1px solid var(--border-color)', background:'rgba(255,255,255,0.9)'}} />
                                 <button className="action-btn" onClick={runRepoAnalysis} disabled={aiLoading}>{aiLoading ? 'Analyzing…' : 'Analyze'}</button>
                             </div>
-                            <div style={{color:'var(--subtle-text-color)', marginTop:6}}>Uses Perplexity Sonar Pro. Key: localStorage.PERPLEXITY_API_KEY.</div>
+                            <div style={{color:'var(--subtle-text-color)', marginTop:6}}>Powered by Kimi AI via the Copilot gateway — no API key needed.</div>
                         </div>
                         {aiLoading && (
                             <div style={{display:'flex', alignItems:'center', gap:10, background:'var(--content-background)', border:'1px solid var(--border-color)', borderRadius:12, padding:12}}>
@@ -5402,16 +5478,6 @@ const HackathonsModal = ({ onClose }: { onClose: () => void }) => {
                         </div>
                     )}
 
-                    {tab === 'AI' && (
-                        <div style={{color:'#444'}}>
-                            <h5 style={{marginTop:0}}>AI Analysis</h5>
-                            <p style={{color:'#666'}}>AI-powered analysis will summarize findings from PFL and GitHub searches and provide suggested next steps. This feature is a placeholder — connect your AI key in Personal Panel to enable.</p>
-                            <div style={{marginTop:12, padding:18, borderRadius:12, background:'linear-gradient(180deg,#fff,#fbfbff)', border:'1px solid var(--border-color)'}}>
-                                <div style={{fontWeight:700, color:'#333'}}>Summary</div>
-                                <div style={{color:'#666', marginTop:8}}>No analysis available yet. Run PFL and GitHub searches, then open this tab to analyze results.</div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
@@ -5583,13 +5649,84 @@ const GitHubSearch = () => {
     );
 };
 
+// Friendly "Request an internship" modal — replaces the old window.prompt/confirm chain so the
+// student clearly understands what's happening and can attach a resume (file) or paste a link.
+const RequestInternshipModal = ({ professorName, onSubmit, onCancel }: {
+    professorName: string;
+    onSubmit: (v: { message: string; file: File | null; link: string }) => void;
+    onCancel: () => void;
+}) => {
+    const [message, setMessage] = useState('');
+    const [link, setLink] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+    return (
+        <div className="modal-overlay is-visible" role="dialog" aria-modal="true" aria-label="Request Internship" style={{position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9000, padding:16}}>
+            <div className="modal-content" style={{background:'#fff', borderRadius:16, maxWidth:520, width:'100%', padding:'26px', boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto'}}>
+                <h2 style={{margin:'0 0 6px', fontSize:'1.35rem'}}>Request an internship</h2>
+                <p style={{margin:'0 0 4px', color:'#0ea5a4', fontWeight:600}}>with {professorName}</p>
+                <p style={{margin:'0 0 18px', color:'#64748b', fontSize:'0.92rem', lineHeight:1.5}}>
+                    Your request + resume goes to our team, who forward it to the professor. Your personalized
+                    <b> MINE </b> dashboard unlocks automatically once the professor <b>accepts</b> you.
+                </p>
+
+                <label style={{display:'block', fontWeight:600, fontSize:'0.9rem', marginBottom:6}}>Message to the professor <span style={{color:'#94a3b8', fontWeight:400}}>(optional)</span></label>
+                <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Introduce yourself and why you'd like to intern with them…"
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:10, fontFamily:'inherit', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box'}} />
+
+                <label style={{display:'block', fontWeight:600, fontSize:'0.9rem', margin:'16px 0 6px'}}>Attach your resume <span style={{color:'#94a3b8', fontWeight:400}}>(PDF / DOC — optional)</span></label>
+                <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,image/*"
+                    onChange={e => setFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                    style={{display:'block', width:'100%', fontSize:'0.9rem'}} />
+                {file && <div style={{fontSize:'0.82rem', color:'#0ea5a4', marginTop:4}}>Selected: {file.name}</div>}
+
+                <label style={{display:'block', fontWeight:600, fontSize:'0.9rem', margin:'16px 0 6px'}}>…or paste a resume/CV link <span style={{color:'#94a3b8', fontWeight:400}}>(optional)</span></label>
+                <input type="url" value={link} onChange={e => setLink(e.target.value)} placeholder="https://…  (Google Drive, CV Generator, etc.)"
+                    style={{width:'100%', padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:10, fontFamily:'inherit', fontSize:'0.95rem', boxSizing:'border-box'}} />
+
+                <div style={{display:'flex', gap:10, justifyContent:'flex-end', marginTop:24}}>
+                    <button onClick={onCancel} style={{padding:'10px 18px', borderRadius:10, border:'1px solid #e2e8f0', background:'#fff', color:'#334155', cursor:'pointer', fontWeight:600}}>Cancel</button>
+                    <button onClick={() => onSubmit({ message, file, link })} className="add-btn" style={{padding:'10px 22px', borderRadius:10, fontWeight:600}}>Send request</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN APP COMPONENT ---
 // Defined LAST so it can access all sub-components without ReferenceErrors
 export const App = () => {
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
+    const [interviewSessionId, setInterviewSessionId] = useState<string | null>(null);
+    const INTERVIEWER_URL = String((import.meta as any)?.env?.VITE_INTERVIEWER_URL || '').replace(/\/+$/, '');
+
+    // Start a real INTERVIEWER session (via the backend bridge) and show the prep screen.
+    const handleStartInterview = useCallback(async () => {
+        setInterviewSessionId(null);
+        setIsInterviewLoading(true);
+        try {
+            let interviewer: any = null;
+            try { interviewer = JSON.parse(localStorage.getItem('selectedInterviewer') || 'null'); } catch (e) { /* ignore */ }
+            const res: any = await startInterviewSession({
+                mode: 'fixed',
+                count: 6,
+                interviewer: interviewer ? { id: interviewer.id, name: interviewer.name } : undefined,
+            });
+            if (res && res.session_id) setInterviewSessionId(String(res.session_id));
+        } catch (e) {
+            console.warn('Interview session start failed:', e);
+        }
+    }, []);
     const [showInterviewConstructionNotice, setShowInterviewConstructionNotice] = useState(false);
     const [restoredSession, setRestoredSession] = useState<PersistedSessionState | null>(() => loadSessionState());
     const [userRole, setUserRole] = useState<'admin' | 'public' | null>(() => loadSessionState()?.userRole ?? null);
+
+    // The floating "Open CV Generator" button lives in index.html; hide it for admin users.
+    useEffect(() => {
+        try {
+            const btn = document.querySelector('a[aria-label="Open CV Generator"]') as HTMLElement | null;
+            if (btn) btn.style.display = userRole === 'admin' ? 'none' : '';
+        } catch (e) { /* ignore */ }
+    }, [userRole]);
     const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; photo?: string; location?: string } | null>(() => loadSessionState()?.currentUser ?? null);
     const [data, setData] = useState<AppData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -5599,6 +5736,22 @@ export const App = () => {
     const [hasSetTarget, setHasSetTarget] = useState<boolean>(() => loadSessionState()?.hasSetTarget ?? false);
     // New state for guest target tracking
     const [guestTarget, setGuestTarget] = useState<string | null>(() => loadSessionState()?.guestTarget ?? null);
+    // Internship-request stage for the current guest: none|submitted|under_review|accepted|declined.
+    // MINE unlocks ONLY when the professor has accepted (stage === 'accepted').
+    const [internshipStage, setInternshipStage] = useState<'none' | 'submitted' | 'under_review' | 'accepted' | 'declined'>('none');
+    // Friendly "Request Internship" modal (replaces the old window.prompt/confirm chain).
+    const [requestModalProf, setRequestModalProf] = useState<string | null>(null);
+    const requestModalResolve = useRef<((v: { message: string; file: File | null; link: string } | null) => void) | null>(null);
+    const openRequestModal = useCallback((professorName: string): Promise<{ message: string; file: File | null; link: string } | null> => {
+        setRequestModalProf(professorName || 'this professor');
+        return new Promise((resolve) => { requestModalResolve.current = resolve; });
+    }, []);
+    const closeRequestModal = useCallback((result: { message: string; file: File | null; link: string } | null) => {
+        setRequestModalProf(null);
+        const r = requestModalResolve.current;
+        requestModalResolve.current = null;
+        if (r) r(result);
+    }, []);
     // Visitors (admin view)
     const [visitors, setVisitors] = useState<{ id?: string; name?: string; email?: string }[]>([]);
     const prevVisitorsRef = useRef<{ id?: string; name?: string; email?: string }[]>([]);
@@ -5678,6 +5831,52 @@ export const App = () => {
     const [apiStatus, setApiStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
     const showToast = useToast();
 
+    // --- Site Guide (guided tour + secondary cursor) ---
+    // guideOn = the ▶ button in the chatbot is ON (cursor visible). guideStep = tour
+    // step (-1 = idle/follow-mouse). guidePoint = a one-shot "point at this section".
+    const [guideOn, setGuideOn] = useState(false);
+    const [guideStep, setGuideStep] = useState(-1);
+    const [guidePoint, setGuidePoint] = useState<PointSignal>(null);
+    const [guideCommand, setGuideCommand] = useState<GuideCommand>(null);
+    // Actions the guide runs so a target is visible before pointing at it.
+    const guideActions: GuideActions = useMemo(() => ({
+        home: () => setViewStack([{ view: 'home' }]),
+        openProfile: () => setPersonalPanelOpen(true),
+        closeProfile: () => setPersonalPanelOpen(false),
+        openMenu: () => setSidePanelOpen(true),
+        closeMenu: () => setSidePanelOpen(false),
+        openDirectory: () => setViewStack([{ view: 'professor_directory' }]),
+        openModal: (name: string) => setActiveModal(name),
+        closeMenuPanels: () => { setSidePanelOpen(false); setPersonalPanelOpen(false); setSelfDevOpen(false); },
+    }), []);
+    // The ▶ button ONLY toggles the guiding cursor (follow-mouse + AI pointing).
+    // It never launches the walkthrough — that's exclusively the "Tour" button.
+    const toggleGuide = useCallback(() => {
+        setGuideOn(on => {
+            const next = !on;
+            setGuideStep(-1);
+            if (!next) setGuidePoint(null);
+            return next;
+        });
+    }, []);
+    // Explicit "Tour" button → play the full walkthrough on demand.
+    const startTour = useCallback(() => {
+        setGuidePoint(null);
+        setGuideOn(true);
+        setGuideStep(0);
+    }, []);
+    const guideAsk = useCallback((key: string | null, act?: boolean) => {
+        setGuidePoint({ key, ts: Date.now(), act: !!act });
+    }, []);
+    // Multi-step instruction (e.g. "open ai department and search for X"): turn the
+    // cursor on and hand the parsed command to the overlay to carry out end-to-end.
+    const runGuideCommand = useCallback((cmd: { dept?: string | null; query?: string | null; component?: string | null }) => {
+        setGuidePoint(null);
+        setGuideStep(-1);
+        setGuideOn(true);
+        setGuideCommand({ ...cmd, ts: Date.now() });
+    }, []);
+
     const touchSession = useCallback(() => {
         if (!userRole || !currentUser) return;
         setLastActivityAt(Date.now());
@@ -5712,7 +5911,7 @@ export const App = () => {
         const intervalId = window.setInterval(() => {
             const staleFor = Date.now() - lastActivityAt;
             if (staleFor >= APP_INACTIVITY_LIMIT_MS) {
-                try { logout().catch(() => {}); } catch (e) {}
+                try { clearAdminToken(); logout().catch(() => {}); } catch (e) {}
                 try {
                     if (currentUser && currentUser.email) {
                         localStorage.removeItem(`guest_target_${currentUser.email}`);
@@ -5840,15 +6039,35 @@ export const App = () => {
 
             if (lockedTargetId) {
                 if (lockedTargetId !== profId) {
-                    showToast('Your target is already locked and cannot be changed.');
+                    // A locked target normally can't be changed — EXCEPT when that request was
+                    // DECLINED, in which case the student may pick a different professor and re-apply
+                    // (this is why the resume/request modal wasn't re-appearing after a rejection).
+                    let previousDeclined = false;
+                    try {
+                        const st: any = await getInternshipStatus(currentUser.email || '', lockedTargetId);
+                        previousDeclined = !!st && st.stage === 'declined';
+                    } catch (e) { /* ignore */ }
+
+                    if (!previousDeclined) {
+                        showToast('Your target is already locked and cannot be changed.');
+                        return;
+                    }
+
+                    // Release the old (declined) lock so the fresh request flow runs for the new prof.
+                    try { localStorage.removeItem(`guest_target_${currentUser.email}`); } catch (e) { /* ignore */ }
+                    setGuestTarget(null);
+                    setSelectedProfessorId(null);
+                    setHasSetTarget(false);
+                    setInternshipStage('none');
+                    lockedTargetId = '';
+                    // fall through -> set the new target + open the request/resume modal
+                } else {
+                    setGuestTarget(lockedTargetId);
+                    setSelectedProfessorId(lockedTargetId);
+                    setHasSetTarget(true);
+                    showToast('Your target is already selected and locked.');
                     return;
                 }
-
-                setGuestTarget(lockedTargetId);
-                setSelectedProfessorId(lockedTargetId);
-                setHasSetTarget(true);
-                showToast('Your target is already selected and locked.');
-                return;
             }
 
             setGuestTarget(profId);
@@ -5874,6 +6093,43 @@ export const App = () => {
 
             const existingTokens = loadTargetSelectionTokens();
             saveTargetSelectionTokens([tokenEntry, ...existingTokens]);
+
+            // Collect the student's message + resume via a friendly in-app modal, then email the
+            // admin mailbox (who forwards to the professor). The dashboard stays locked until the
+            // professor accepts.
+            try {
+                const details = await openRequestModal(targetProfessor?.name || 'this professor');
+                let message = '', resumePath = '', resumeName = '', resumeLink = '';
+                if (details) {
+                    message = details.message || '';
+                    resumeLink = (details.link || '').trim();
+                    if (details.file) {
+                        try {
+                            showToast('Uploading resume…');
+                            const up = await uploadResume(details.file);
+                            resumePath = up.resumePath; resumeName = up.resumeName;
+                        } catch (e) { console.warn('Resume upload failed:', e); showToast('Resume upload failed; sending request without it.'); }
+                    }
+                }
+
+                const reqRes: any = await submitInternshipRequest({
+                    userName: currentUser.name || 'Unknown User',
+                    userEmail: currentUser.email || '',
+                    professorId: profId,
+                    professorName: targetProfessor?.name || profId,
+                    branchName,
+                    message,
+                    resumePath, resumeName, resumeLink,
+                });
+                if (reqRes && reqRes.ok) {
+                    setInternshipStage('submitted');
+                    showToast(reqRes.emailMode === 'gmail'
+                        ? 'Request sent! You\'ll unlock MINE once the professor accepts.'
+                        : 'Request recorded (email pending setup).');
+                }
+            } catch (e) {
+                console.warn('Failed to submit internship request email', e);
+            }
 
             try {
                 await insertGuestTargetLock({
@@ -5950,24 +6206,42 @@ export const App = () => {
 
         const existingBranch = department.branches.map(bId => data.branches[bId]).find(b => b?.name.toLowerCase() === branchName.toLowerCase());
         let branchId = existingBranch ? existingBranch.id : `branch_${Date.now()}`;
-        
+
+        // New professors inherit their field's recommended companies (>=6) if none were provided.
         const profPayload: any = {
-            ...profCoreData, branch: branchId, departmentId: department.id, departmentName: department.name,
-            
+            ...profCoreData,
+            companies: withFieldCompanies(profCoreData.companies, department.id),
+            branch: branchId,
+            departmentId: department.id,
+            departmentName: department.name,
         };
 
+        // Insert the professor (built from the payload, keyed by a REAL id) + any new branch.
+        const applyNewProf = (savedId: string, profObj: any) => handleDataUpdate(currentData => {
+            let updated = { ...currentData } as AppData;
+            if (!existingBranch) {
+                const newBranch = { id: branchId, name: branchName, departmentId: department.id };
+                updated = { ...updated, branches: { ...updated.branches, [branchId]: newBranch } };
+                updated = { ...updated, departments: updated.departments.map(d => d.id === department.id ? { ...d, branches: [...d.branches, branchId] } : d) };
+            }
+            const profs = { ...updated.professors, [savedId]: { ...profObj, id: savedId } };
+            updated = { ...updated, professors: profs };
+            try { saveLocalData(updated); } catch (e) { /* ignore */ }
+            return updated;
+        });
+
         try {
-            const savedProf = await updateProfessor(profPayload);
-            handleDataUpdate(currentData => {
-                let updatedData = { ...currentData };
-                const newProfs = { ...updatedData.professors, [savedProf._id]: { ...savedProf, id: savedProf._id } };
-                return { ...updatedData, professors: newProfs };
-            });
+            const savedProf: any = await updateProfessor(profPayload);
+            const savedId = String(savedProf?.id || savedProf?._id || `prof_custom_${Date.now()}`);
+            applyNewProf(savedId, { ...profPayload, ...savedProf, id: savedId });
             showToast(`Professor added!`);
             setActiveModal(null);
         } catch (error: any) {
+            // Offline: still add locally so the admin's action is not lost.
             setApiStatus('offline');
-            showToast(`Failed to save professor.`);
+            applyNewProf(`local_${Date.now()}`, profPayload);
+            showToast(`Professor added (offline).`);
+            setActiveModal(null);
         }
     }, [data, handleDataUpdate, showToast]);
 
@@ -6048,8 +6322,11 @@ export const App = () => {
                 }
 
                 const profs = { ...updated.professors };
-                const savedId = savedProf._id || savedProf.id || id;
-                profs[savedId] = { ...(savedProf as any), id: savedId };
+                const savedId = String((savedProf as any)?.id || (savedProf as any)?._id || id);
+                // Build from the submitted payload first, then overlay the server's saved copy,
+                // so an edit never wipes name/companies/etc. from a bare response shape.
+                profs[savedId] = { ...payload, ...(savedProf as any), id: savedId };
+                delete (profs[savedId] as any)._id;
                 updated = { ...updated, professors: profs };
                 return updated;
             });
@@ -6084,11 +6361,13 @@ export const App = () => {
     const loadData = useCallback(async () => {
         setLoading(true);
         let loadedData: AppData | null = null;
+        let connected = false;
         try {
             // Try fetching from server
             const serverData: any = await fetchMockData();
             if (serverData && serverData.departments) {
                 loadedData = serverData;
+                connected = true;
                 setApiStatus('connected');
             } else {
                 throw new Error('Invalid server data');
@@ -6107,22 +6386,27 @@ export const App = () => {
         if (loadedData) {
             const fb = fallbackData as unknown as AppData;
             
-            // 1. Merge Departments
-            const existingDeptIds = new Set(loadedData.departments.map(d => d.id));
-            fb.departments.forEach(d => {
-                if (!existingDeptIds.has(d.id)) {
-                    loadedData!.departments.push(d);
-                }
-            });
+            // When connected, the backend is the source of truth: do NOT re-add seed
+            // departments/professors/branches (this is what used to make admin deletes
+            // reappear). Only backfill from the seed when offline so the app still shows data.
+            // 1. Merge Departments (offline only)
+            if (!connected) {
+                const existingDeptIds = new Set(loadedData.departments.map(d => d.id));
+                fb.departments.forEach(d => {
+                    if (!existingDeptIds.has(d.id)) {
+                        loadedData!.departments.push(d);
+                    }
+                });
+            }
 
-            // 2. Merge Professors (simple merge: add if not exists by ID)
-            // Use type assertion to handle potential index signature issues
+            // 2. Merge Professors: backfill missing profs only when offline; always allow
+            //    photo recovery for professors that ARE present.
             const currentProfs = loadedData.professors as Record<string, Professor>;
             const fallbackProfs = fb.professors as Record<string, Professor>;
-            
+
             Object.keys(fallbackProfs).forEach(key => {
                  if (!currentProfs[key]) {
-                     currentProfs[key] = fallbackProfs[key];
+                     if (!connected) currentProfs[key] = fallbackProfs[key];
                      return;
                  }
 
@@ -6137,15 +6421,17 @@ export const App = () => {
                      };
                  }
             });
-            
-            // 3. Merge Branches
-            const currentBranches = loadedData.branches as Record<string, Branch>;
-            const fallbackBranches = fb.branches as Record<string, Branch>;
-             Object.keys(fallbackBranches).forEach(key => {
-                 if (!currentBranches[key]) {
-                     currentBranches[key] = fallbackBranches[key];
-                 }
-            });
+
+            // 3. Merge Branches (offline only)
+            if (!connected) {
+                const currentBranches = loadedData.branches as Record<string, Branch>;
+                const fallbackBranches = fb.branches as Record<string, Branch>;
+                Object.keys(fallbackBranches).forEach(key => {
+                    if (!currentBranches[key]) {
+                        currentBranches[key] = fallbackBranches[key];
+                    }
+                });
+            }
 
             const aiData = await loadAiDepartmentData();
             if (aiData) {
@@ -6193,37 +6479,26 @@ export const App = () => {
     }, []);
 
     const handleLogin = (email: string, pass: string): boolean => {
-        // Admin credentials (updated)
-        const ADMIN_EMAIL_1 = 'saurav.saha1984@gmail.com';
-        const ADMIN_PASSWORD_1 = 'legends_reborn';
-        const ADMIN_EMAIL_2 = 'admin123@gmail.com';
-        const ADMIN_PASSWORD_2 = 'admin123';
-        if (email === ADMIN_EMAIL_1 && pass === ADMIN_PASSWORD_1) {
+        // Single source of truth for admin accounts (previously two code paths disagreed).
+        const ADMIN_ACCOUNTS = [
+            { email: 'saurav.saha1984@gmail.com', pass: 'legends_reborn', photo: '/photos/team.png' },
+            { email: 'admin123@gmail.com', pass: 'admin123', photo: '/photos/chandan%20behera.png' },
+        ];
+        const match = ADMIN_ACCOUNTS.find(a => a.email === email && a.pass === pass);
+        if (match) {
             const nextUser = {
                 name: 'Administrator',
                 email: email || 'admin',
                 role: 'System Admin',
-                photo: '/photos/team.png',
+                photo: match.photo,
             };
             setUserRole('admin');
             setCurrentUser(nextUser);
             setLastActivityAt(Date.now());
             setRestoredSession(null);
             setViewStack([{ view: 'home' }]);
-            return true;
-        }
-        if (email === ADMIN_EMAIL_2 && pass === ADMIN_PASSWORD_2) {
-            const nextUser = {
-                name: 'Administrator',
-                email: email || 'admin',
-                role: 'System Admin',
-                photo: '/photos/chandan%20behera.png',
-            };
-            setUserRole('admin');
-            setCurrentUser(nextUser);
-            setLastActivityAt(Date.now());
-            setRestoredSession(null);
-            setViewStack([{ view: 'home' }]);
+            // Acquire a backend write token so admin edits/deletes actually persist (best-effort).
+            adminLogin(email, pass).catch(() => {});
             return true;
         }
         return false;
@@ -6304,7 +6579,7 @@ export const App = () => {
     };
 
     const handleLogout = () => {
-        try { logout().catch(() => {}); } catch (e) {}
+        try { clearAdminToken(); logout().catch(() => {}); } catch (e) {}
         // Clear all guest target and MINE section keys for this user
         try {
             if (currentUser && currentUser.email) {
@@ -6333,13 +6608,31 @@ export const App = () => {
         if (userRole) loadData();
     }, [userRole, loadData]);
 
+    // Poll the internship-request stage for public users so MINE unlocks when the professor accepts.
+    useEffect(() => {
+        if (userRole !== 'public' || !currentUser?.email || !guestTarget) {
+            setInternshipStage('none');
+            return;
+        }
+        let stopped = false;
+        const check = async () => {
+            try {
+                const s: any = await getInternshipStatus(currentUser.email, guestTarget);
+                if (!stopped && s) setInternshipStage(s.stage || (s.found ? 'submitted' : 'none'));
+            } catch (e) { /* keep last known stage */ }
+        };
+        check();
+        const iv = setInterval(check, 20000); // refresh every 20s while waiting
+        return () => { stopped = true; clearInterval(iv); };
+    }, [userRole, currentUser?.email, guestTarget]);
+
     // Load visitors when admin; poll periodically and allow toggling via window event
     useEffect(() => {
         let interval: any = null;
         const loadVisitors = async () => {
             try {
                 const res: any = await fetchVisitors();
-                const vs = res && res.visitors ? res.visitors : [];
+                const vs = Array.isArray(res) ? res : (res && res.visitors ? res.visitors : []);
 
                 // Identify new visitors since last poll
                 try {
@@ -6403,7 +6696,7 @@ export const App = () => {
     const refreshVisitorsNow = useCallback(async () => {
         try {
             const res: any = await fetchVisitors();
-            const vs = res && res.visitors ? res.visitors : [];
+            const vs = Array.isArray(res) ? res : (res && res.visitors ? res.visitors : []);
             setVisitors(vs);
             prevVisitorsRef.current = vs;
             try { (window as any).__visitors_count__ = vs.length; } catch (e) {}
@@ -6427,9 +6720,12 @@ export const App = () => {
                         userRole={userRole} 
                         onSetTarget={handleSetGuestTarget}
                         onReturnHome={() => setViewStack([{ view: 'home' }])}
-                        hasGuestTarget={!!guestTarget}
+                        /* Treat a DECLINED request as "no active target" so the student can request a
+                           new professor (otherwise the page shows the locked strategy notice, and the
+                           request/resume modal never opens). */
+                        hasGuestTarget={!!guestTarget && internshipStage !== 'declined'}
                         onConfirmGuestTarget={handleSetGuestTarget}
-                    /> 
+                    />
                 ) : <div>Professor not found.</div>;
             case 'department':
                  const dept = data.departments.find(d => d.id === currentView.id);
@@ -6439,13 +6735,14 @@ export const App = () => {
             case 'home':
             default:
                 return (
-                    <HomePage 
-                        data={data} 
-                        onOpenPublicModal={(name: string) => setActiveModal(name)} 
+                    <HomePage
+                        data={data}
+                        onOpenPublicModal={(name: string) => setActiveModal(name)}
                         onNavigate={navigateTo}
-                        userRole={userRole} 
-                        hasGuestTarget={!!guestTarget} 
+                        userRole={userRole}
+                        hasGuestTarget={!!guestTarget}
                         targetProfessorId={selectedProfessorId || guestTarget || null}
+                        internshipStage={internshipStage}
                     />
                 );
         }
@@ -6467,10 +6764,20 @@ export const App = () => {
     }
 
     if (isInterviewLoading) {
-        return <InterviewLoadingScreen theme={theme} onDone={() => {
-            setIsInterviewLoading(false);
-            setShowInterviewConstructionNotice(true);
-        }} />;
+        return <InterviewLoadingScreen
+            theme={theme}
+            sessionId={interviewSessionId}
+            onReady={() => {
+                if (INTERVIEWER_URL && interviewSessionId) {
+                    window.location.href = `${INTERVIEWER_URL}/?session=${encodeURIComponent(interviewSessionId)}`;
+                }
+            }}
+            onDone={() => {
+                setIsInterviewLoading(false);
+                setInterviewSessionId(null);
+                setShowInterviewConstructionNotice(true);
+            }}
+        />;
     }
 
     return (
@@ -6531,12 +6838,12 @@ export const App = () => {
 
             {/* Certificates Modal (Pop-out) */}
             {activeModal === 'certificates' && (
-                <CertificatesModal onClose={() => setActiveModal(null)} onStartInterview={() => setIsInterviewLoading(true)} />
+                <CertificatesModal onClose={() => setActiveModal(null)} onStartInterview={handleStartInterview} />
             )}
 
             {/* Quizzes Modal (Pop-out) */}
             {activeModal === 'quizzes' && (
-                <QuizzesModal onClose={() => setActiveModal(null)} userRole={userRole} onStartInterview={() => setIsInterviewLoading(true)} />
+                <QuizzesModal onClose={() => setActiveModal(null)} userRole={userRole} onStartInterview={handleStartInterview} />
             )}
 
             {/* Hackathons Modal (Pop-out) */}
@@ -6547,6 +6854,15 @@ export const App = () => {
             {/* Alumni Modal (Pop-out) */}
             {activeModal === 'alumni' && (
                 <AlumniNetworkingModal onClose={() => setActiveModal(null)} userRole={userRole} />
+            )}
+
+            {/* Friendly internship-request modal (message + resume) */}
+            {requestModalProf && (
+                <RequestInternshipModal
+                    professorName={requestModalProf}
+                    onSubmit={(v) => closeRequestModal(v)}
+                    onCancel={() => closeRequestModal(null)}
+                />
             )}
 
             {/* Announcements Modal */}
@@ -6599,32 +6915,36 @@ export const App = () => {
                             <div className="linkedin-section">
                                 <h4 className="linkedin-section-title">Resources</h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                    <div 
-                                        className="linkedin-dashboard-card" 
-                                        role="button" 
+                                    <div
+                                        className="linkedin-dashboard-card"
+                                        data-guide="res-selfdev"
+                                        role="button"
                                         onClick={() => setSelfDevOpen(true)}
                                     >
                                         <span className="linkedin-dashboard-title">Self Development</span>
                                         <span className="linkedin-dashboard-subtitle">Track your career progress and analytics</span>
                                     </div>
-                                    <div 
-                                        className="linkedin-dashboard-card" 
+                                    <div
+                                        className="linkedin-dashboard-card"
+                                        data-guide="res-certificates"
                                         role="button"
                                         onClick={() => setActiveModal('certificates')}
                                     >
                                         <span className="linkedin-dashboard-title">Certificates</span>
                                         <span className="linkedin-dashboard-subtitle">View 100+ free certification programs</span>
                                     </div>
-                                    <div 
-                                        className="linkedin-dashboard-card" 
+                                    <div
+                                        className="linkedin-dashboard-card"
+                                        data-guide="res-alumni"
                                         role="button"
                                         onClick={() => setActiveModal('alumni')}
                                     >
                                         <span className="linkedin-dashboard-title">Alumni Networking</span>
                                         <span className="linkedin-dashboard-subtitle">Connect with graduates and mentors</span>
                                     </div>
-                                    <div 
-                                        className="linkedin-dashboard-card" 
+                                    <div
+                                        className="linkedin-dashboard-card"
+                                        data-guide="res-quizzes"
                                         role="button"
                                         onClick={() => setActiveModal('quizzes')}
                                     >
@@ -6633,6 +6953,7 @@ export const App = () => {
                                     </div>
                                     <div
                                         className="linkedin-dashboard-card"
+                                        data-guide="res-hackathons"
                                         role="button"
                                         onClick={() => { setActiveModal('hackathons'); }}
                                     >
@@ -6730,7 +7051,24 @@ export const App = () => {
                 </>
             )}
 
-            <Chatbot userRole={userRole} apiKey={apiKey} />
+            <Chatbot
+                userRole={userRole}
+                apiKey={apiKey}
+                guideOn={guideOn}
+                onToggleGuide={toggleGuide}
+                onStartTour={startTour}
+                onGuideAsk={guideAsk}
+                onGuideCommand={runGuideCommand}
+            />
+            <SiteGuideOverlay
+                active={guideOn}
+                stepIndex={guideStep}
+                onStepChange={setGuideStep}
+                onExit={() => { setGuideOn(false); setGuideStep(-1); setGuidePoint(null); setGuideCommand(null); }}
+                actions={guideActions}
+                pointSignal={guidePoint}
+                command={guideCommand}
+            />
             {showVisitors && userRole === 'admin' && (
                 <VisitorsModal visitors={visitors} onClose={() => setShowVisitors(false)} />
             )}

@@ -46,16 +46,18 @@ create policy deny_delete
   using (false);
 
 2) How the frontend connects
-- Provide two environment variables to the frontend build (Vite):
-  - `VITE_SUPABASE_URL` = your Supabase project URL (e.g. https://xyzcompany.supabase.co)
-  - `VITE_SUPABASE_ANON_KEY` = the project's anon public API key
+2) How the frontend connects
+- For a "no secrets in the browser" setup, do NOT connect directly from the frontend.
+  Route writes/reads through:
+  - your backend (recommended), or
+  - a Supabase Edge Function.
 
-  Example (in `.env` at `frontend/.env`):
+  Your server/Edge Function should store keys in server-side environment variables.
 
-  VITE_SUPABASE_URL=https://qjddgukoeevcuqimzrcf.supabase.co
-  VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZGRndWtvZWV2Y3VxaW16cmNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTIxMjksImV4cCI6MjA4MTI4ODEyOX0.tYwpoJSVXkCW-_kFO70jQfmwkzccQzhjtaxeGJXvoBs
+  Example placeholders (DO NOT commit real values):
 
-- Alternatively you can store them in localStorage as `SUPABASE_URL` and `SUPABASE_ANON_KEY` for local testing.
+  SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+  SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
 3) What the code does
 - The app will attempt to call `insertGuestLogin(...)` during the guest login flow.
