@@ -1409,9 +1409,9 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
     const [adminEmail, setAdminEmail] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
-    // OTP flow: 'email' (enter institute email) -> 'code' (enter 6-digit code from inbox)
-    const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
-    const [otpCode, setOtpCode] = useState('');
+    // Magic-link flow: 'email' (enter institute email) -> 'sent' (link mailed, check inbox).
+    // otpInfo holds the email address the link was sent to.
+    const [otpStep, setOtpStep] = useState<'email' | 'sent'>('email');
     const [otpInfo, setOtpInfo] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -1494,7 +1494,9 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
         if (!success) setError('Invalid email or password.');
     };
 
-    // Step 1: user submits their institute email -> Supabase emails a 6-digit code.
+    // User submits their institute email -> Supabase emails a clickable sign-in link.
+    // The link brings them back to the app, where the session is detected on load
+    // (see the auth listener in App) and they're logged in automatically.
     const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -1513,62 +1515,24 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
         try {
             const { error: otpError } = await supabase.auth.signInWithOtp({
                 email,
-                options: { shouldCreateUser: true },
+                options: {
+                    shouldCreateUser: true,
+                    emailRedirectTo: window.location.origin,
+                },
             });
             if (otpError) {
-                setError(otpError.message || 'Could not send the verification code.');
+                setError(otpError.message || 'Could not send the sign-in link.');
                 return;
             }
-            setOtpStep('code');
-            setOtpInfo(`We sent a 6-digit code to ${email}. Enter it below.`);
+            setOtpStep('sent');
+            setOtpInfo(email);
         } catch (err: any) {
-            setError('Could not send the verification code. Check your connection.');
-        } finally { setLoading(false); }
-    };
-
-    // Step 2: user enters the emailed code -> Supabase verifies -> app session starts.
-    const handleVerifyOtp = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        const email = guestEmail.trim().toLowerCase();
-        const token = otpCode.trim();
-        if (!token) {
-            setError('Please enter the 6-digit code.');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const { data, error: verifyError } = await supabase.auth.verifyOtp({
-                email,
-                token,
-                type: 'email',
-            });
-            if (verifyError || !data?.user) {
-                setError(verifyError?.message || 'Invalid or expired code.');
-                return;
-            }
-
-            // Guard again in case the account somehow has a non-institute email.
-            if (!isAllowedEmail(email)) {
-                await supabase.auth.signOut();
-                setError(`Only @${ALLOWED_DOMAIN} email addresses are allowed.`);
-                return;
-            }
-
-            // Derive a display name from the email local-part (e.g. 2024epb1279).
-            const displayName = email.split('@')[0];
-            const profile = { name: displayName, email, role: 'Student at IIT ROPAR', location: 'IIT Ropar, India' };
-            const ok = await onPublicLogin(profile, '');
-            if (!ok) setError('Login failed.');
-        } catch (err: any) {
-            setError('Verification failed. Check your connection.');
+            setError('Could not send the sign-in link. Check your connection.');
         } finally { setLoading(false); }
     };
 
     const handleResetOtp = () => {
         setOtpStep('email');
-        setOtpCode('');
         setOtpInfo('');
         setError('');
     };
@@ -1666,7 +1630,7 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                         otpStep === 'email' ? (
                         <form className="login-form" onSubmit={handleSendOtp}>
                             <h2>Student Login</h2>
-                            <p style={{color: '#666', fontSize: '0.9rem', marginTop: 0}}>Sign in with your IIT Ropar email. We'll send a one-time code to your inbox.</p>
+                            <p style={{color: '#666', fontSize: '0.9rem', marginTop: 0}}>Sign in with your IIT Ropar email. We'll email you a secure sign-in link.</p>
                             <div className="input-group">
                                 <label>Institute Email</label>
                                 <div className="input-wrapper">
@@ -1674,22 +1638,21 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                                 </div>
                             </div>
                             {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
-                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Sending code...' : 'Send code'}</button>
+                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Sending link...' : 'Send sign-in link'}</button>
                         </form>
                         ) : (
-                        <form className="login-form" onSubmit={handleVerifyOtp}>
-                            <h2>Enter code</h2>
-                            {otpInfo && <p style={{color: '#2a7', fontSize: '0.9rem', marginTop: 0}}>{otpInfo}</p>}
-                            <div className="input-group">
-                                <label>6-digit code</label>
-                                <div className="input-wrapper">
-                                    <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} placeholder="123456" required autoFocus />
-                                </div>
-                            </div>
+                        <div className="login-form">
+                            <h2>Check your email</h2>
+                            <p style={{color: '#444', fontSize: '0.95rem', marginTop: 0}}>
+                                We sent a sign-in link to <strong>{otpInfo}</strong>.
+                            </p>
+                            <p style={{color: '#666', fontSize: '0.9rem'}}>
+                                Open the email and click <strong>Confirm your mail</strong> to sign in. You can close this tab afterwards — you'll be signed in automatically when you return.
+                            </p>
                             {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
-                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Verifying...' : 'Verify & sign in'}</button>
+                            <button type="button" className="login-btn" onClick={handleSendOtp} disabled={loading}>{loading ? 'Resending...' : 'Resend link'}</button>
                             <button type="button" onClick={handleResetOtp} disabled={loading} style={{marginTop: 10, background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem'}}>← Use a different email</button>
-                        </form>
+                        </div>
                         )
                     )}
                 </div>
@@ -6643,6 +6606,47 @@ export const App = () => {
         setRestoredSession(null);
     };
         // Removed invalid block referencing 'profile' outside any function
+
+    // Keep a live reference to the login handler so the auth listener (mounted once)
+    // always invokes the latest closure without re-subscribing on every render.
+    const publicLoginRef = useRef(handlePublicLogin);
+    publicLoginRef.current = handlePublicLogin;
+
+    // Supabase magic-link session detection. When a student clicks the emailed link,
+    // they land back here with a session in the URL hash; Supabase parses it and fires
+    // an auth event. We validate the domain and log them in automatically. Also covers
+    // an already-signed-in user reopening the app.
+    useEffect(() => {
+        let active = true;
+
+        const signInFromSession = async (session: any) => {
+            const email = String(session?.user?.email || '').trim().toLowerCase();
+            if (!email) return;
+            if (!isAllowedEmail(email)) {
+                // Reject non-institute accounts that somehow authenticated.
+                try { await supabase.auth.signOut(); } catch (e) { /* ignore */ }
+                return;
+            }
+            // Avoid clobbering an active admin session or re-running once logged in.
+            if (!active || userRole) return;
+            const displayName = email.split('@')[0];
+            const profile = { name: displayName, email, role: 'Student at IIT ROPAR', location: 'IIT Ropar, India' };
+            try { await publicLoginRef.current(profile, ''); } catch (e) { console.warn('Auto sign-in failed', e); }
+        };
+
+        // Check for a session already present on load (magic-link return or persisted session).
+        supabase.auth.getSession().then(({ data }) => {
+            if (data?.session) signInFromSession(data.session);
+        }).catch(() => { /* ignore */ });
+
+        // React to sign-in events (fires when the link is parsed from the URL).
+        const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) signInFromSession(session);
+        });
+
+        return () => { active = false; try { sub?.subscription?.unsubscribe(); } catch (e) { /* ignore */ } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (userRole) loadData();
