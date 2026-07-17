@@ -922,6 +922,72 @@ const ALLOWED_GUESTS = [
     ];
 
 const LOCAL_STORAGE_KEY = 'career-booster-data';
+
+// --- Per-user profile (name + photo) persisted locally, keyed by email ---
+// New users type their name once on the login page; photo starts as nil (neutral
+// placeholder) until they upload one from the Personal Panel.
+const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+    '<rect width="100" height="100" fill="#e2e8f0"/>' +
+    '<circle cx="50" cy="38" r="18" fill="#94a3b8"/>' +
+    '<path d="M18 92 Q18 62 50 62 Q82 62 82 92 Z" fill="#94a3b8"/></svg>'
+);
+const profileNameKey = (email: string) => `cb_profile_name_${String(email || '').trim().toLowerCase()}`;
+const profilePhotoKey = (email: string) => `cb_profile_photo_${String(email || '').trim().toLowerCase()}`;
+const getStoredProfileName = (email: string): string => {
+    try { return (localStorage.getItem(profileNameKey(email)) || '').trim(); } catch (e) { return ''; }
+};
+const setStoredProfileName = (email: string, name: string) => {
+    try { localStorage.setItem(profileNameKey(email), String(name || '').trim()); } catch (e) { /* ignore */ }
+};
+const getStoredProfilePhoto = (email: string): string => {
+    try { return localStorage.getItem(profilePhotoKey(email)) || ''; } catch (e) { return ''; }
+};
+const setStoredProfilePhoto = (email: string, dataUrl: string) => {
+    try { localStorage.setItem(profilePhotoKey(email), dataUrl); } catch (e) { /* ignore */ }
+};
+
+// Open a file picker for an image and resolve with a resized (max 256px) data URL,
+// small enough to persist in localStorage. Resolves null on cancel/failure.
+function pickProfileImage(): Promise<string | null> {
+    return new Promise((resolve) => {
+        try {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            let done = false;
+            const finish = (v: string | null) => { if (!done) { done = true; resolve(v); } };
+            input.onchange = () => {
+                const f = input.files && input.files[0];
+                if (!f) return finish(null);
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            const max = 256;
+                            const scale = Math.min(1, max / Math.max(img.width, img.height));
+                            const w = Math.max(1, Math.round(img.width * scale));
+                            const h = Math.max(1, Math.round(img.height * scale));
+                            const canvas = document.createElement('canvas');
+                            canvas.width = w; canvas.height = h;
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return finish(null);
+                            ctx.drawImage(img, 0, 0, w, h);
+                            finish(canvas.toDataURL('image/jpeg', 0.85));
+                        } catch (e) { finish(null); }
+                    };
+                    img.onerror = () => finish(null);
+                    img.src = String(reader.result || '');
+                };
+                reader.onerror = () => finish(null);
+                reader.readAsDataURL(f);
+            };
+            window.addEventListener('focus', () => setTimeout(() => finish(null), 800), { once: true });
+            input.click();
+        } catch (e) { resolve(null); }
+    });
+}
 const TARGET_SELECTION_TOKENS_KEY = 'admin_target_selection_tokens';
 const APP_SESSION_STATE_KEY = 'career-booster-session-state';
 const APP_INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
@@ -1409,6 +1475,7 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
     const [adminEmail, setAdminEmail] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
+    const [guestName, setGuestName] = useState('');
     // Magic-link flow: 'email' (enter institute email) -> 'sent' (link mailed, check inbox).
     // otpInfo holds the email address the link was sent to.
     const [otpStep, setOtpStep] = useState<'email' | 'sent'>('email');
@@ -1517,6 +1584,14 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
             setError(`Only @${ALLOWED_DOMAIN} email addresses are allowed.`);
             return;
         }
+        // New users must tell us their name; returning users have it stored already.
+        const typedName = guestName.trim();
+        const knownName = getStoredProfileName(email);
+        if (!typedName && !knownName) {
+            setError('Please enter your name.');
+            return;
+        }
+        if (typedName) setStoredProfileName(email, typedName);
         if (resendCooldown > 0) {
             setError(`Please wait ${resendCooldown}s before requesting another link.`);
             return;
@@ -1667,7 +1742,13 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                             <div className="input-group">
                                 <label>Institute Email</label>
                                 <div className="input-wrapper">
-                                    <input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={`2024epb1279@${ALLOWED_DOMAIN}`} autoComplete="email" required />
+                                    <input type="email" value={guestEmail} onChange={(e) => { setGuestEmail(e.target.value); const known = getStoredProfileName(e.target.value.trim().toLowerCase()); if (known && !guestName.trim()) setGuestName(known); }} placeholder={`2024epb1279@${ALLOWED_DOMAIN}`} autoComplete="email" required />
+                                </div>
+                            </div>
+                            <div className="input-group">
+                                <label>Your Name</label>
+                                <div className="input-wrapper">
+                                    <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. Animesh Kumar" autoComplete="name" />
                                 </div>
                             </div>
                             {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
@@ -1707,7 +1788,7 @@ const ApiStatusIndicator = ({ status }: { status: 'connecting' | 'connected' | '
 
 // 4. Header
     const SiteHeader = ({ onMenuClick, onBack, showBack, apiStatus, onLogout, userRole, onAvatarClick, isPersonalPanelOpen, theme, onToggleTheme, currentUser, onHomeClick, onOpenAdminPanel }: any) => {
-    const avatarSrc = currentUser && currentUser.photo ? currentUser.photo : '/photos/team.png';
+    const avatarSrc = currentUser && currentUser.photo ? currentUser.photo : DEFAULT_AVATAR;
     return (
     <header className="site-header">
         {/* Left: small profile avatar moved to left as requested */}
@@ -6664,8 +6745,10 @@ export const App = () => {
             }
             // Avoid clobbering an active admin session or re-running once logged in.
             if (!active || userRole) return;
-            const displayName = email.split('@')[0];
-            const profile = { name: displayName, email, role: 'Student at IIT ROPAR', location: 'IIT Ropar, India' };
+            // Prefer the name the user typed at login; fall back to the email local-part.
+            const displayName = getStoredProfileName(email) || email.split('@')[0];
+            const storedPhoto = getStoredProfilePhoto(email);
+            const profile = { name: displayName, email, role: 'Student at IIT ROPAR', photo: storedPhoto || undefined, location: 'IIT Ropar, India' };
             try { await publicLoginRef.current(profile, ''); } catch (e) { console.warn('Auto sign-in failed', e); }
         };
 
@@ -6970,8 +7053,22 @@ export const App = () => {
                         <div className="linkedin-profile-container">
                             <div className="linkedin-banner">
                                 <button className="linkedin-close-btn" onClick={() => { touchSession(); closePersonalPanel(); }}>&times;</button>
-                                <div className="linkedin-avatar-container">
-                                    <img src={currentUser && currentUser.photo ? currentUser.photo : '/photos/team.png'} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
+                                <div className="linkedin-avatar-container" style={{position: 'relative'}}>
+                                    <img src={currentUser && currentUser.photo ? currentUser.photo : DEFAULT_AVATAR} alt="Profile" draggable={false} onDragStart={preventImageDrag} />
+                                    {userRole === 'public' && currentUser && (
+                                        <button
+                                            title="Upload profile photo"
+                                            aria-label="Upload profile photo"
+                                            onClick={async () => {
+                                                const dataUrl = await pickProfileImage();
+                                                if (!dataUrl) return;
+                                                setStoredProfilePhoto(currentUser.email, dataUrl);
+                                                setCurrentUser(u => u ? { ...u, photo: dataUrl } : u);
+                                                try { showToast('Profile photo updated.'); } catch (e) { /* ignore */ }
+                                            }}
+                                            style={{position: 'absolute', right: -4, bottom: -4, width: 32, height: 32, borderRadius: '50%', border: '2px solid #fff', background: 'var(--primary-color)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.25)'}}
+                                        >📷</button>
+                                    )}
                                 </div>
                             </div>
                             
