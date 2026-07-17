@@ -592,6 +592,7 @@ import { withFieldCompanies } from './fieldCompanies';
 import { apiLogger, LogEntry } from './apilogger';
 import { fallbackData } from './seed-export';
 import { insertGuestLogin, getGuestTargetLockByEmail, insertGuestTargetLock } from './guestApi';
+import { supabase, isAllowedEmail, ALLOWED_DOMAIN } from './supabaseClient';
 
 // External API keys are NOT handled in the browser.
 // All Google CSE / Perplexity / Gemini calls are proxied via the backend.
@@ -1402,21 +1403,20 @@ const Chatbot = ({ userRole, apiKey, guideOn, onToggleGuide, onStartTour, onGuid
 
 // 2. Login Page
 const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: (email: string, pass: string) => boolean, onPublicLogin: (profile: { name: string; email: string; role?: string; photo?: string; location?: string }, pass: string) => Promise<boolean>, theme?: 'light' | 'dark', onToggleTheme?: () => void }) => {
-        // Password visibility toggles
+        // Password visibility toggle (admin only)
         const [adminPasswordVisible, setAdminPasswordVisible] = useState(false);
-        const [guestPasswordVisible, setGuestPasswordVisible] = useState(false);
     const [mode, setMode] = useState<'admin' | 'public'>('public');
     const [adminEmail, setAdminEmail] = useState('');
     const [adminPassword, setAdminPassword] = useState('');
-    const [guestName, setGuestName] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
-    const [guestPassword, setGuestPassword] = useState('');
+    // OTP flow: 'email' (enter institute email) -> 'code' (enter 6-digit code from inbox)
+    const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
+    const [otpCode, setOtpCode] = useState('');
+    const [otpInfo, setOtpInfo] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [colorTheme, setColorTheme] = useState(() => getStoredColorTheme());
     const [customColor, setCustomColor] = useState(() => getStoredCustomColor());
-
-    const allowedGuests = ALLOWED_GUESTS;
 
     useLayoutEffect(() => {
         applyColorThemeToDocument(colorTheme, colorTheme === 'custom' ? customColor : undefined);
@@ -1494,38 +1494,83 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
         if (!success) setError('Invalid email or password.');
     };
 
-    const handlePublicSubmit = async (e: React.FormEvent) => {
+    // Step 1: user submits their institute email -> Supabase emails a 6-digit code.
+    const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!guestName.trim() || !guestEmail.trim() || !guestPassword.trim()) {
-            setError('Please provide name, email and password.');
+        setOtpInfo('');
+        const email = guestEmail.trim().toLowerCase();
+        if (!email) {
+            setError('Please enter your email.');
             return;
         }
-
-        // Validate specific users
-        const inputName = guestName.trim();
-        const foundUser = allowedGuests.find(u => u.name.toLowerCase() === inputName.toLowerCase());
-        
-        if (!foundUser) {
-            setError('User not authorized.');
-            return;
-        }
-
-        // Password policy: FirstName + &123 (e.g. Mohi&123)
-        const expectedPass = `${foundUser.first}&123`;
-        if (guestPassword !== expectedPass) {
-            setError('Invalid password.');
+        if (!isAllowedEmail(email)) {
+            setError(`Only @${ALLOWED_DOMAIN} email addresses are allowed.`);
             return;
         }
 
         setLoading(true);
         try {
-            const profile = { name: foundUser.name, email: guestEmail.trim(), role: (foundUser as any).role, photo: (foundUser as any).photo, location: (foundUser as any).location };
-            const ok = await onPublicLogin(profile, guestPassword);
-            if (!ok) setError('Login failed.');
-        } catch (err) {
-            setError('Public login failed. Check server connection.');
+            const { error: otpError } = await supabase.auth.signInWithOtp({
+                email,
+                options: { shouldCreateUser: true },
+            });
+            if (otpError) {
+                setError(otpError.message || 'Could not send the verification code.');
+                return;
+            }
+            setOtpStep('code');
+            setOtpInfo(`We sent a 6-digit code to ${email}. Enter it below.`);
+        } catch (err: any) {
+            setError('Could not send the verification code. Check your connection.');
         } finally { setLoading(false); }
+    };
+
+    // Step 2: user enters the emailed code -> Supabase verifies -> app session starts.
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        const email = guestEmail.trim().toLowerCase();
+        const token = otpCode.trim();
+        if (!token) {
+            setError('Please enter the 6-digit code.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { data, error: verifyError } = await supabase.auth.verifyOtp({
+                email,
+                token,
+                type: 'email',
+            });
+            if (verifyError || !data?.user) {
+                setError(verifyError?.message || 'Invalid or expired code.');
+                return;
+            }
+
+            // Guard again in case the account somehow has a non-institute email.
+            if (!isAllowedEmail(email)) {
+                await supabase.auth.signOut();
+                setError(`Only @${ALLOWED_DOMAIN} email addresses are allowed.`);
+                return;
+            }
+
+            // Derive a display name from the email local-part (e.g. 2024epb1279).
+            const displayName = email.split('@')[0];
+            const profile = { name: displayName, email, role: 'Student at IIT ROPAR', location: 'IIT Ropar, India' };
+            const ok = await onPublicLogin(profile, '');
+            if (!ok) setError('Login failed.');
+        } catch (err: any) {
+            setError('Verification failed. Check your connection.');
+        } finally { setLoading(false); }
+    };
+
+    const handleResetOtp = () => {
+        setOtpStep('email');
+        setOtpCode('');
+        setOtpInfo('');
+        setError('');
     };
 
     return (
@@ -1618,54 +1663,34 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                             <button type="submit" className="login-btn">Login</button>
                         </form>
                     ) : (
-                        <form className="login-form" onSubmit={handlePublicSubmit}>
-                            <h2>Guest Login</h2>
+                        otpStep === 'email' ? (
+                        <form className="login-form" onSubmit={handleSendOtp}>
+                            <h2>Student Login</h2>
+                            <p style={{color: '#666', fontSize: '0.9rem', marginTop: 0}}>Sign in with your IIT Ropar email. We'll send a one-time code to your inbox.</p>
                             <div className="input-group">
-                                <label>Name</label>
+                                <label>Institute Email</label>
                                 <div className="input-wrapper">
-                                    <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Full Name " />
-                                </div>
-                            </div>
-                            <div className="input-group">
-                                <label>Email</label>
-                                <div className="input-wrapper">
-                                    <input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="email.com" />
-                                </div>
-                            </div>
-                            <div className="input-group" style={{ position: 'relative' }}>
-                                <label>Password</label>
-                                <div className="input-wrapper">
-                                    <input
-                                        type={guestPasswordVisible ? 'text' : 'password'}
-                                        value={guestPassword}
-                                        onChange={(e) => setGuestPassword(e.target.value)}
-                                        placeholder="admin password "
-                                    />
-                                    <button
-                                        type="button"
-                                        aria-label={guestPasswordVisible ? 'Hide password' : 'Show password'}
-                                        onClick={() => setGuestPasswordVisible(v => !v)}
-                                        style={{
-                                            position: 'absolute',
-                                            right: 8,
-                                            top: 8,
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            padding: 0
-                                        }}
-                                    >
-                                        {guestPasswordVisible ? (
-                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-5.05 0-9.14-3.38-10.94-8a10.94 10.94 0 0 1 2.06-3.34"/><path d="M1 1l22 22"/><path d="M9.53 9.53A3.5 3.5 0 0 0 12 15.5c1.93 0 3.5-1.57 3.5-3.5a3.5 3.5 0 0 0-3.5-3.5c-.47 0-.92.09-1.34.26"/></svg>
-                                        ) : (
-                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M2 12s4.5-7 10-7 10 7 10 7-4.5 7-10 7-10-7-10-7z"/></svg>
-                                        )}
-                                    </button>
+                                    <input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={`2024epb1279@${ALLOWED_DOMAIN}`} autoComplete="email" required />
                                 </div>
                             </div>
                             {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
-                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Signing in...' : 'Continue'}</button>
+                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Sending code...' : 'Send code'}</button>
                         </form>
+                        ) : (
+                        <form className="login-form" onSubmit={handleVerifyOtp}>
+                            <h2>Enter code</h2>
+                            {otpInfo && <p style={{color: '#2a7', fontSize: '0.9rem', marginTop: 0}}>{otpInfo}</p>}
+                            <div className="input-group">
+                                <label>6-digit code</label>
+                                <div className="input-wrapper">
+                                    <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} placeholder="123456" required autoFocus />
+                                </div>
+                            </div>
+                            {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
+                            <button type="submit" className="login-btn" disabled={loading}>{loading ? 'Verifying...' : 'Verify & sign in'}</button>
+                            <button type="button" onClick={handleResetOtp} disabled={loading} style={{marginTop: 10, background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem'}}>← Use a different email</button>
+                        </form>
+                        )
                     )}
                 </div>
             </div>
@@ -5494,22 +5519,29 @@ const PFLSearch = () => {
     const runSearch = async () => {
         setError('');
         setResults([]);
-        const apiKey = getSectionApiKey(sectionKey) || '';
-        const cx = getSectionCx(sectionKey) || '';
-        if (!apiKey || !cx) {
-            setError('LinkedIn search is not configured. Set VITE_GOOGLE_CSE_KEY_LINKEDIN / VITE_GOOGLE_CSE_CX_LINKEDIN in .env, or save GOOGLE_SEARCH_KEY_LINKEDIN / GOOGLE_SEARCH_CX_LINKEDIN in Personal Panel.');
-            return;
-        }
         if (!query.trim()) { setError('Please enter a hackathon name to search.'); return; }
 
         const q = `site:linkedin.com/in ("${query.trim()}") (finalist OR winner OR \"rank\")`;
-        const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=10`;
         setLoading(true);
         try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-            const data = await res.json();
-            const items = data.items || [];
+            // Prefer the backend proxy (keys live server-side); fall back to a direct
+            // browser call only when local keys are configured (Personal Panel / Vite env).
+            let items: any[] = [];
+            try {
+                const data = await googleCseSearch({ section: sectionKey, q, num: 10 });
+                items = (data && data.items) || [];
+            } catch (proxyErr) {
+                const apiKey = getSectionApiKey(sectionKey) || '';
+                const cx = getSectionCx(sectionKey) || '';
+                if (!apiKey || !cx) {
+                    throw new Error('LinkedIn search is not configured. Start the backend (it proxies Google CSE), or set VITE_GOOGLE_CSE_KEY_LINKEDIN / VITE_GOOGLE_CSE_CX_LINKEDIN in .env, or save GOOGLE_SEARCH_KEY_LINKEDIN / GOOGLE_SEARCH_CX_LINKEDIN in Personal Panel.');
+                }
+                const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=10`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+                const data = await res.json();
+                items = data.items || [];
+            }
             const mapped = items.map((it: any) => ({
                 title: it.title || it.displayLink || '',
                 link: it.link,
@@ -5561,23 +5593,30 @@ const GitHubSearch = () => {
         setError('');
         setResults([]);
         setGrouped(null);
-        const apiKey = getSectionApiKey(sectionKey) || '';
-        const cx = getSectionCx(sectionKey) || '';
-        if (!apiKey || !cx) {
-            setError('Google Custom Search key/CX not configured for GitHub. Add them in the Personal Panel (GOOGLE_SEARCH_KEY_GITHUB / GOOGLE_SEARCH_CX_GITHUB) or set a global key.');
-            return;
-        }
         if (!query.trim()) { setError('Please enter a name or handle to search.'); return; }
 
         // Prefer profile-style matches and repositories on github.com
         const q = `site:github.com "${query.trim()}"`;
-        const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=10`;
         setLoading(true);
         try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-            const data = await res.json();
-            const items = data.items || [];
+            // Prefer the backend proxy (keys live server-side); fall back to a direct
+            // browser call only when local keys are configured (Personal Panel / Vite env).
+            let items: any[] = [];
+            try {
+                const data = await googleCseSearch({ section: sectionKey, q, num: 10 });
+                items = (data && data.items) || [];
+            } catch (proxyErr) {
+                const apiKey = getSectionApiKey(sectionKey) || '';
+                const cx = getSectionCx(sectionKey) || '';
+                if (!apiKey || !cx) {
+                    throw new Error('GitHub search is not configured. Start the backend (it proxies Google CSE), or set VITE_GOOGLE_CSE_KEY_GITHUB / VITE_GOOGLE_CSE_CX_GITHUB in .env, or save GOOGLE_SEARCH_KEY_GITHUB / GOOGLE_SEARCH_CX_GITHUB in Personal Panel.');
+                }
+                const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=10`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+                const data = await res.json();
+                items = data.items || [];
+            }
             const mapped = items.map((it: any) => ({ title: it.title || '', link: it.link, snippet: it.snippet || '' }));
             setResults(mapped);
 
@@ -6580,6 +6619,7 @@ export const App = () => {
 
     const handleLogout = () => {
         try { clearAdminToken(); logout().catch(() => {}); } catch (e) {}
+        try { supabase.auth.signOut().catch(() => {}); } catch (e) {}
         // Clear all guest target and MINE section keys for this user
         try {
             if (currentUser && currentUser.email) {
