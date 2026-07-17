@@ -4,14 +4,17 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string;
+// Fallbacks are the project's PUBLIC (publishable/anon) values — safe to ship in the
+// browser bundle. They keep the app from crashing when Vercel env vars aren't set;
+// override them per-environment with VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY.
+const FALLBACK_URL = 'https://qjddgukoeevcuqimzrcf.supabase.co';
+const FALLBACK_ANON_KEY = 'sb_publishable_r9CRuWy4hh-618rTE-PBWg_By_NXERY';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[supabase] VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set — auth will not work.');
-}
+const env = ((import.meta as any).env ?? {}) as Record<string, string | undefined>;
+const supabaseUrl = (env.VITE_SUPABASE_URL || FALLBACK_URL).trim();
+const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || FALLBACK_ANON_KEY).trim();
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '');
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /** Domain that is allowed to sign in */
 export const ALLOWED_DOMAIN = 'iitrpr.ac.in';
