@@ -1413,6 +1413,14 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
     // otpInfo holds the email address the link was sent to.
     const [otpStep, setOtpStep] = useState<'email' | 'sent'>('email');
     const [otpInfo, setOtpInfo] = useState('');
+    // Seconds until another link may be requested (Supabase throttles email sends).
+    const [resendCooldown, setResendCooldown] = useState(0);
+
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const t = setTimeout(() => setResendCooldown(s => s - 1), 1000);
+        return () => clearTimeout(t);
+    }, [resendCooldown]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [colorTheme, setColorTheme] = useState(() => getStoredColorTheme());
@@ -1500,7 +1508,6 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
     const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setOtpInfo('');
         const email = guestEmail.trim().toLowerCase();
         if (!email) {
             setError('Please enter your email.');
@@ -1510,9 +1517,26 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
             setError(`Only @${ALLOWED_DOMAIN} email addresses are allowed.`);
             return;
         }
+        if (resendCooldown > 0) {
+            setError(`Please wait ${resendCooldown}s before requesting another link.`);
+            return;
+        }
 
         setLoading(true);
         try {
+            // If this browser already has a valid Supabase session for this email,
+            // skip the email entirely — the App auth listener will sign them in.
+            try {
+                const { data: sess } = await supabase.auth.getSession();
+                const sessEmail = String(sess?.session?.user?.email || '').toLowerCase();
+                if (sessEmail && sessEmail === email) {
+                    setOtpStep('sent');
+                    setOtpInfo(email);
+                    setError('');
+                    return;
+                }
+            } catch (e) { /* fall through to sending the link */ }
+
             const { error: otpError } = await supabase.auth.signInWithOtp({
                 email,
                 options: {
@@ -1521,11 +1545,20 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                 },
             });
             if (otpError) {
-                setError(otpError.message || 'Could not send the sign-in link.');
+                const msg = String(otpError.message || '');
+                if (/rate limit|too many/i.test(msg)) {
+                    // Supabase's email service throttles sends; start a local cooldown
+                    // so the user doesn't keep burning the quota with retries.
+                    setResendCooldown(60);
+                    setError('Too many emails sent. If a link already arrived, use it — it stays valid. Otherwise try again in about an hour.');
+                } else {
+                    setError(msg || 'Could not send the sign-in link.');
+                }
                 return;
             }
             setOtpStep('sent');
             setOtpInfo(email);
+            setResendCooldown(60); // deter rapid resends that trip the server limit
         } catch (err: any) {
             setError('Could not send the sign-in link. Check your connection.');
         } finally { setLoading(false); }
@@ -1650,7 +1683,9 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
                                 Open the email and click <strong>Confirm your mail</strong> to sign in. You can close this tab afterwards — you'll be signed in automatically when you return.
                             </p>
                             {error && <p className="login-error" style={{color: 'red'}}>{error}</p>}
-                            <button type="button" className="login-btn" onClick={handleSendOtp} disabled={loading}>{loading ? 'Resending...' : 'Resend link'}</button>
+                            <button type="button" className="login-btn" onClick={handleSendOtp} disabled={loading || resendCooldown > 0}>
+                                {loading ? 'Resending...' : (resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : 'Resend link')}
+                            </button>
                             <button type="button" onClick={handleResetOtp} disabled={loading} style={{marginTop: 10, background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem'}}>← Use a different email</button>
                         </div>
                         )
