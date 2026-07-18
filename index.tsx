@@ -1599,15 +1599,15 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
 
         setLoading(true);
         try {
-            // If this browser already has a valid Supabase session for this email,
-            // skip the email entirely — the App auth listener will sign them in.
+            // Already verified in this browser? Sign in directly — no new email needed.
             try {
                 const { data: sess } = await supabase.auth.getSession();
                 const sessEmail = String(sess?.session?.user?.email || '').toLowerCase();
                 if (sessEmail && sessEmail === email) {
-                    setOtpStep('sent');
-                    setOtpInfo(email);
-                    setError('');
+                    const displayName = getStoredProfileName(email) || email.split('@')[0];
+                    const storedPhoto = getStoredProfilePhoto(email);
+                    const ok = await onPublicLogin({ name: displayName, email, role: 'Student at IIT ROPAR', photo: storedPhoto || undefined, location: 'IIT Ropar, India' }, '');
+                    if (!ok) setError('Login failed.');
                     return;
                 }
             } catch (e) { /* fall through to sending the link */ }
