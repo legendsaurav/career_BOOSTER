@@ -1468,7 +1468,7 @@ const Chatbot = ({ userRole, apiKey, guideOn, onToggleGuide, onStartTour, onGuid
 };
 
 // 2. Login Page
-const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: (email: string, pass: string) => boolean, onPublicLogin: (profile: { name: string; email: string; role?: string; photo?: string; location?: string }, pass: string) => Promise<boolean>, theme?: 'light' | 'dark', onToggleTheme?: () => void }) => {
+const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: (email: string, pass: string) => Promise<boolean>, onPublicLogin: (profile: { name: string; email: string; role?: string; photo?: string; location?: string }, pass: string) => Promise<boolean>, theme?: 'light' | 'dark', onToggleTheme?: () => void }) => {
         // Password visibility toggle (admin only)
         const [adminPasswordVisible, setAdminPasswordVisible] = useState(false);
     const [mode, setMode] = useState<'admin' | 'public'>('public');
@@ -1548,24 +1548,10 @@ const LoginPage = ({ onLogin, onPublicLogin, theme, onToggleTheme }: { onLogin: 
         }
     };
 
-    const handleAdminSubmit = (e: React.FormEvent) => {
+    const handleAdminSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        // Custom admin login logic for new admin123@gmail.com
-        if (adminEmail === 'admin123@gmail.com' && adminPassword === 'legends_reborn') {
-            // Store user info in localStorage or state as needed
-            const profile = {
-                name: 'Admin 123',
-                email: 'admin123@gmail.com',
-                role: 'Admin',
-                photo: '/photos/chandan%20behera.png',
-                location: 'India'
-            };
-            localStorage.setItem('currentUser', JSON.stringify(profile));
-            window.location.reload();
-            return;
-        }
-        const success = onLogin(adminEmail, adminPassword);
+        const success = await onLogin(adminEmail, adminPassword);
         if (!success) setError('Invalid email or password.');
     };
 
@@ -6596,30 +6582,27 @@ export const App = () => {
         setLoading(false);
     }, []);
 
-    const handleLogin = (email: string, pass: string): boolean => {
-        // Single source of truth for admin accounts (previously two code paths disagreed).
-        const ADMIN_ACCOUNTS = [
-            { email: 'saurav.saha1984@gmail.com', pass: 'legends_reborn', photo: '/photos/team.png' },
-            { email: 'admin123@gmail.com', pass: 'admin123', photo: '/photos/chandan%20behera.png' },
-        ];
-        const match = ADMIN_ACCOUNTS.find(a => a.email === email && a.pass === pass);
-        if (match) {
-            const nextUser = {
-                name: 'Administrator',
-                email: email || 'admin',
-                role: 'System Admin',
-                photo: match.photo,
-            };
-            setUserRole('admin');
-            setCurrentUser(nextUser);
-            setLastActivityAt(Date.now());
-            setRestoredSession(null);
-            setViewStack([{ view: 'home' }]);
-            // Acquire a backend write token so admin edits/deletes actually persist (best-effort).
-            adminLogin(email, pass).catch(() => {});
-            return true;
+    const handleLogin = async (email: string, pass: string): Promise<boolean> => {
+        // Admin credentials live ONLY in the backend .env (ADMIN_EMAIL/ADMIN_PASSWORD).
+        // Never hardcode them here — this bundle is public.
+        try {
+            const data = await adminLogin(email, pass); // verifies server-side + stores write token
+            if (!data || !data.ok) return false;
+        } catch {
+            return false;
         }
-        return false;
+        const nextUser = {
+            name: 'Administrator',
+            email: email || 'admin',
+            role: 'System Admin',
+            photo: '/photos/team.png',
+        };
+        setUserRole('admin');
+        setCurrentUser(nextUser);
+        setLastActivityAt(Date.now());
+        setRestoredSession(null);
+        setViewStack([{ view: 'home' }]);
+        return true;
     };
 
     const handlePublicLogin = async (profile: { name: string; email: string; role?: string; photo?: string; location?: string }, pass: string): Promise<boolean> => {
