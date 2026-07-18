@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://prime-feel-copies-josh.trycloudflare.com/api/:path*"
+      "destination": "https://precise-farms-riders-strap.trycloudflare.com/api/:path*"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
